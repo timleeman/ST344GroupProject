@@ -1,0 +1,55 @@
+---
+title: "Team 5 Coursework"
+author: '1806082'
+date: "11/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r chunk 1, message = FALSE}
+library(dplyr)
+library(readxl)
+CovidData<- read.csv("tidycovid19.csv")
+
+library(lubridate)
+CovidData <- CovidData %>%
+  mutate(date = as.Date(parse_date_time(CovidData$date,orders=c("y","ym","ymd"))))
+CountryData<- CovidData %>% select(date,country, confirmed)
+```
+
+```{r chunk 2}
+#adding continents to the countries
+library(rio)
+Countries <- import("Countries.xlsx", setclass = "tibble")
+Countries <- filter(Countries, country %in% CountryData$country)
+CountryData <- left_join(CountryData, Countries, by = "country")
+CountryData <- mutate(CountryData, country = factor(country), 
+                    continent = factor(continent))
+```
+
+```{r chunk 3}
+#changing from cumulative to daily confirmed
+firstdiff <- function(x) {                 
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result)
+}
+CountryData<- CountryData %>% mutate(daily_confirmed = firstdiff(confirmed))
+```
+
+```{r chunk 4}
+library(ggplot2)
+plot_daily_confirmed<- CountryData %>% ggplot(aes(x= date, y= daily_confirmed, group = country, colour = continent))+
+  geom_line()+
+  facet_wrap(~continent)
+print(plot_daily_confirmed)
+
+CountryData_Asia<- filter(CountryData, continent == 'Asia')
+plot_asia<- CountryData_Asia %>% ggplot(aes(x=date, y=daily_confirmed, group = country, colour = country))+geom_line()
+print(plot_asia)
+```
