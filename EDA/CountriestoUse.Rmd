@@ -1,0 +1,69 @@
+---
+title: "Assessing which Countries to Examine"
+author: '1806987'
+date: "14/11/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("devtools")
+library(devtools)
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+
+
+covidData <- download_merged_data(cached = TRUE, silent = TRUE)
+countries <- import("Countries.xlsx", setclass = "tibble")
+countries <- filter(countries, country %in% covidData$country)
+covidData <- left_join(covidData, countries, by = "country")
+covidData <- mutate(covidData, country = factor(country), continent = factor(continent))
+```
+
+
+```{r}
+#Getting just the relevant continents
+covidData <- filter(covidData, continent == "Europe" | continent == "North America" | continent == "South America")
+co <- ""
+missing <- 0
+
+#Remove countries with excessive amounts of data missing in gcmr_retail_recreation column
+for (co in levels(covidData$country)){
+  missing <- 0
+  for(x in filter(covidData, country == co)$gcmr_retail_recreation){
+    if(is.na(x)){
+      missing = missing + 1
+    }
+  }
+  #50 can be changed to another threshold
+  if(missing >= 50){
+    covidData <- filter(covidData, country != co)
+  }
+}
+
+#Remove countries with excessive amounts of data missing in gcmr_grocery_pharmacy column
+for (co in levels(covidData$country)){
+  missing <- 0
+  for(x in filter(covidData, country == co)$gcmr_grocery_pharmacy){
+    if(is.na(x)){
+      missing = missing + 1
+    }
+  }
+  #50 can be changed to another threshold
+  if(missing >= 50){
+    covidData <- filter(covidData, country != co)
+  }
+}
+
+#Getting rid of countries with populations less than 2,000,000? An option?
+covidData <- filter(covidData, population > 2000000)
+
+#Optionally: get rid of rows with data missing in ecdc_cases and ecdc_deaths columns
+#covidData <- filter(covidData, !is.na(ecdc_deaths))
+
+
+covidData <- droplevels(covidData)
+levels(covidData$country)
+```
