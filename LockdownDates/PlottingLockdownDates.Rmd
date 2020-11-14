@@ -1,0 +1,244 @@
+---
+title: "Plotting lockdown dates by country"
+author: "Mai-An Dang"
+date: "14/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+## Importing Data
+
+First, we have a look at the tidycovid19 package, and pull the merged data.
+
+```{r import_tidycovid19Package, message=FALSE}
+library(tidycovid19)
+
+merged <- download_merged_data(cached=TRUE)
+
+View(merged)
+```
+
+We then read our provided .csv file (from ST344), remove the first column and parse the date column as a 'date'.
+
+```{r importProjectDataset, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+
+projData <- read_csv("tidycovid19.csv", guess_max=5000)
+
+projData <- select(projData, -1)
+
+projData <- projData %>%
+  mutate(date = as.Date(parse_date_time(projData$date,orders=c("y","ym","ymd"))))
+```
+
+## Measuring strength of lockdown
+
+We create a subset of our ST344 coursework data, to only observe the United Kingdom.
+
+```{r UKDataset}
+UKData <- projData %>% filter(country=="United Kingdom")
+
+firstdiff <- function(x) {
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result)
+}
+
+UKData <- UKData %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+```
+
+We first plot the number of confirmed daily cases against date.
+
+```{r plotConfirmedDate, warning=FALSE}
+plot_confirmed_date <- UKData %>%
+  ggplot(aes(x = date, y = daily_confirmed)) +
+  geom_point() +
+  scale_x_date(date_breaks = "months", date_labels = "%b-%Y") +
+  ggtitle("Confirmed COVID-19 cases in the United Kingdom",
+          subtitle = "Source: 'tidycovid19' R Package") +
+  xlab("Date") +
+  ylab("Daily confirmed cases")
+
+print(plot_confirmed_date)
+```
+
+We then add on individual lines, showing number of government interventions.
+
+```{r plotConfirmedInterventionDate, warning=FALSE, fig.width=9}
+max_daily_confirmed <- max(UKData$daily_confirmed, na.rm=TRUE)
+max_gov_intv <- max(UKData$soc_dist, UKData$mov_rest, UKData$pub_health, UKData$gov_soc_econ, UKData$lockdown, na.rm=TRUE)
+
+colors <- c("Social distancing" = "orange",
+            "Movement restrictions" = "purple",
+            "Public health measures" = "cyan",
+            "Social and economic measures" = "green",
+            "Lockdown measures" = "red")
+
+plot_confirmed_date <- UKData %>%
+  ggplot(aes(x = date, y = daily_confirmed)) +
+  geom_point() +
+  scale_x_date(date_breaks = "months", date_labels = "%b-%Y") +
+  ggtitle("Confirmed COVID-19 cases in the United Kingdom",
+          subtitle = "Source: 'tidycovid19' R Package") +
+  xlab("Date") +
+  ylab("Daily confirmed cases") +
+  geom_line(aes(y=soc_dist/max_gov_intv*max_daily_confirmed, color="Social distancing")) +
+  geom_line(aes(y=mov_rest/max_gov_intv*max_daily_confirmed, color="Movement restrictions")) +
+  geom_line(aes(y=pub_health/max_gov_intv*max_daily_confirmed, color="Public health measures")) +
+  geom_line(aes(y=gov_soc_econ/max_gov_intv*max_daily_confirmed, color="Social and economic measures")) +
+  geom_line(aes(y=lockdown/max_gov_intv*max_daily_confirmed, color="Lockdown measures")) +
+  labs(color = "Government Interventions") +
+  scale_color_manual(values = colors)
+
+print(plot_confirmed_date)
+```
+
+### Plotting lockdowns only
+
+We then consider only plotting the 'start' and 'end' dates of lock downs in individual countries.
+
+We do this by using the Auravision dataset (details on github repository, in "Lockdown Dates" folder's README.md).
+
+```{r importAuravisionDataset, message=FALSE}
+auravision <- read_csv("AuravisionLockdownDates.csv")
+```
+
+As a first example, we plot the UK's confirmed daily cases against date, and add lines for the start and end date of the UK's (first) lockdown.
+
+```{r plotConfirmedLockdownDate, warning=FALSE}
+UK_dates <- auravision %>%
+  filter(Country=="United Kingdom",
+         Level=="National") %>%
+  select("Start date", "End date")
+
+start_end <- c(UK_dates[[1]], UK_dates[[2]])
+
+plot_confirmed_date <- UKData %>%
+  ggplot(aes(x = date, y = daily_confirmed)) +
+  geom_point() +
+  scale_x_date(date_breaks = "months", date_labels = "%d-%b-%y") +
+  ggtitle("Confirmed COVID-19 cases in the United Kingdom",
+          subtitle = "Source: 'tidycovid19' R Package") +
+  xlab("Date") +
+  ylab("Daily confirmed cases") +
+  geom_vline(xintercept = as.numeric(as.Date(UK_dates[[1]])), linetype="dashed", color="red") +
+  geom_vline(xintercept = as.numeric(as.Date(UK_dates[[2]])), linetype="dashed", color="green")
+
+print(plot_confirmed_date)
+```
+
+Note that the extraction of the UK's lockdown dates was quite manual, i.e. required knowledge of what the Auravision data looked like for the UK. Therefore, we will create a tidy version of the Auravision dataset.
+
+## Tidying Auravision dataset
+
+Here, we produce a tidy dataset of the National lockdowns in recorded in the Auravision dataset. Note that it is still not perfect. For example, there are 3 overlapping lockdown dates for Turkey. Therefore, when looking at individual countries, we must check whether these lockdown dates have been confirmed, and what their sources are. We could also make use of the ACAPS dataset here (see github repository for ACAPS dataset).
+
+```{r tidyAuravision}
+tidyAuravisionNational <- auravision %>%
+  filter(Level=="National") %>%
+  select("Country", "Start date", "End date", "Confirmed")
+
+View(tidyAuravisionNational)
+
+tidyAuravisionNational <- pivot_longer(tidyAuravisionNational, !c("Country", "Confirmed"), names_to="NationalLockdown", values_to="Date")
+
+print(tidyAuravisionNational)
+```
+Now let us try plotting our graph for one country again, but using the 'tidyAuravisionNational' dataset. Taking Turkey, as an example, we save a lot of manual input with the following functions.
+
+```{r plotConfirmedLockdownDate_tidyAura}
+myCountry <- "Turkey"
+
+countryData <- projData %>%
+  filter(country==myCountry) %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+
+starts <- tidyAuravisionNational %>%
+  filter(Country==myCountry, NationalLockdown=="Start date") %>%
+  select(Date) %>%
+  pull()
+
+ends <- tidyAuravisionNational %>%
+  filter(Country==myCountry, NationalLockdown=="End date") %>%
+  select(Date) %>%
+  pull()
+
+plot_confirmed_date <- countryData %>%
+  ggplot(aes(x = date, y = daily_confirmed)) +
+  geom_point() +
+  scale_x_date(date_breaks = "months", date_labels = "%d-%b-%y") +
+  ggtitle(paste("Confirmed COVID-19 cases in", myCountry),
+          subtitle = "Source: 'tidycovid19' R Package") +
+  xlab("Date") +
+  ylab("Daily confirmed cases") +
+  geom_vline(xintercept = as.numeric(as.Date(starts)), linetype="dashed", color="red") +
+  geom_vline(xintercept = as.numeric(as.Date(ends)), linetype="dashed", color="green")
+
+print(plot_confirmed_date)
+```
+
+### Create function for simplicity
+
+We could even create a simple function, which we can call for multiple countries. This helps keep our code clean and legible.
+
+```{r create_plotConfirmedLockdownDate_function}
+plot_dailyConfDate_lockdownStartEnd <- function(myCountry) {
+  
+  # Create dataset for our country, include 'daily_confirmed' variable
+  countryData <- projData %>%
+  filter(country==myCountry) %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+  
+  # Assign colours to start or end dates, to be used in legend
+  colors <- c("Start date" = "red",
+            "End date" = "green")
+  
+  # Get start and end dates of national lockdowns
+  starts <- tidyAuravisionNational %>%
+    filter(Country==myCountry, NationalLockdown=="Start date") %>%
+    select(Date) %>%
+    pull()
+  ends <- tidyAuravisionNational %>%
+    filter(Country==myCountry, NationalLockdown=="End date") %>%
+    select(Date) %>%
+    pull()
+  
+  # Plot daily confirmed cases vs. date.
+  # Add vertical lines for the start and end dates of national lockdowns
+  plot_confirmed_date <- countryData %>%
+    ggplot(aes(x = date, y = daily_confirmed)) +
+    geom_point() +
+    scale_x_date(date_breaks = "months", date_labels = "%b-%y") +
+    ggtitle(paste("Confirmed COVID-19 cases in", myCountry),
+            subtitle = "Source: 'tidycovid19' R Package") +
+    xlab("Date") +
+    ylab("Daily confirmed cases") +
+    geom_vline(aes(xintercept = as.numeric(as.Date(starts)), color="Start date"), linetype="dashed") +
+    geom_vline(aes(xintercept = as.numeric(as.Date(ends)), color="End date"), linetype="dashed") +
+    labs(color = "Lockdown dates") +
+    scale_color_manual(values = colors)
+  
+  # Print our plot
+  print(plot_confirmed_date)
+}
+```
+
+N.B. One limitation of this function is that it assumes that the tidycovid19 dataset and Auravision dataset have identical formats for country names e.g. both use "United States" and not only one (with the other using "USA", for example).
+
+Now we can plot multiple countries, with only one simple call.
+
+```{r plotFunction, warning=FALSE}
+plot_dailyConfDate_lockdownStartEnd("Brazil")
+plot_dailyConfDate_lockdownStartEnd("Spain")
+plot_dailyConfDate_lockdownStartEnd("El Salvador")
+```
+
+
+
