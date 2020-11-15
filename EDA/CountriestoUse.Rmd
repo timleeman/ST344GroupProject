@@ -14,6 +14,8 @@ install.packages("devtools")
 library(devtools)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
 
+auravision <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/LockdownDates/AuravisionLockdownDates.csv")
+
 
 covidData <- download_merged_data(cached = TRUE, silent = TRUE)
 countries <- import("Countries.xlsx", setclass = "tibble")
@@ -38,7 +40,7 @@ for (co in levels(covidData$country)){
     }
   }
   #50 can be changed to another threshold
-  if(missing >= 50){
+  if(missing >= 100){
     covidData <- filter(covidData, country != co)
   }
 }
@@ -52,10 +54,12 @@ for (co in levels(covidData$country)){
     }
   }
   #50 can be changed to another threshold
-  if(missing >= 50){
+  if(missing >= 100){
     covidData <- filter(covidData, country != co)
   }
 }
+
+
 
 #Getting rid of countries with populations less than 2,000,000? An option?
 covidData <- filter(covidData, population > 2000000)
