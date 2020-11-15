@@ -239,10 +239,10 @@ plot_dailyConfDate_lockdownStartEnd("Brazil")
 plot_dailyConfDate_lockdownStartEnd("Spain")
 plot_dailyConfDate_lockdownStartEnd("El Salvador")
 ```
-
+We then swap out the plot of 'daily_confirmed' for gcmr variables.
 
 ```{r create_plotGCMRLockdownDate_function}
-plot_GCMRDate_lockdownStartEnd <- function(myCountry, gcmr_var) {
+plot_GCMRDate_lockdownStartEnd <- function(myCountry) {
   
   # Create dataset for our country, include 'daily_confirmed' variable
   countryData <- projData %>%
@@ -266,7 +266,7 @@ plot_GCMRDate_lockdownStartEnd <- function(myCountry, gcmr_var) {
   # Plot daily confirmed cases vs. date.
   # Add vertical lines for the start and end dates of national lockdowns
   plot_confirmed_date <- countryData %>%
-    ggplot(aes(x = date, y = gcmr_retail_recreation)) +
+    ggplot(aes(x = date, y = gcmr_retail_recreation)) +     ##### Change variable name for different GCMR #####
     geom_point() +
     scale_x_date(date_breaks = "months", date_labels = "%b-%y") +
     ggtitle(paste("Confirmed COVID-19 cases in", myCountry),
@@ -283,12 +283,8 @@ plot_GCMRDate_lockdownStartEnd <- function(myCountry, gcmr_var) {
 }
 ```
 
-
+And, again, we can create a plot with one simple function call.
 
 ```{r}
-plot_GCMRDate_lockdownStartEnd("Spain", 'gcmr_retail_recreation')
+plot_GCMRDate_lockdownStartEnd("Spain")
 ```
-
-
-
-
