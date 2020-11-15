@@ -2,18 +2,18 @@
 title: "Plotting lockdown dates by country"
 author: "Mai-An Dang"
 date: "14/11/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, tidy.opts=list(width.cutoff=60),tidy=TRUE)
 ```
 
 ## Importing Data
 
 First, we have a look at the tidycovid19 package, and pull the merged data.
 
-```{r import_tidycovid19Package, message=FALSE}
+```{r import_tidycovid19Package, message=FALSE, include=FALSE}
 library(tidycovid19)
 
 merged <- download_merged_data(cached=TRUE)
@@ -213,7 +213,7 @@ plot_dailyConfDate_lockdownStartEnd <- function(myCountry) {
   # Plot daily confirmed cases vs. date.
   # Add vertical lines for the start and end dates of national lockdowns
   plot_confirmed_date <- countryData %>%
-    ggplot(aes(x = date, y = daily_confirmed)) +
+    ggplot(aes(x = date, y = gcmr_retail_recreation)) +
     geom_point() +
     scale_x_date(date_breaks = "months", date_labels = "%b-%y") +
     ggtitle(paste("Confirmed COVID-19 cases in", myCountry),
@@ -239,6 +239,56 @@ plot_dailyConfDate_lockdownStartEnd("Brazil")
 plot_dailyConfDate_lockdownStartEnd("Spain")
 plot_dailyConfDate_lockdownStartEnd("El Salvador")
 ```
+
+
+```{r create_plotGCMRLockdownDate_function}
+plot_GCMRDate_lockdownStartEnd <- function(myCountry, gcmr_var) {
+  
+  # Create dataset for our country, include 'daily_confirmed' variable
+  countryData <- projData %>%
+  filter(country==myCountry) %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+  
+  # Assign colours to start or end dates, to be used in legend
+  colors <- c("Start date" = "red",
+            "End date" = "green")
+  
+  # Get start and end dates of national lockdowns
+  starts <- tidyAuravisionNational %>%
+    filter(Country==myCountry, NationalLockdown=="Start date") %>%
+    select(Date) %>%
+    pull()
+  ends <- tidyAuravisionNational %>%
+    filter(Country==myCountry, NationalLockdown=="End date") %>%
+    select(Date) %>%
+    pull()
+  
+  # Plot daily confirmed cases vs. date.
+  # Add vertical lines for the start and end dates of national lockdowns
+  plot_confirmed_date <- countryData %>%
+    ggplot(aes(x = date, y = gcmr_retail_recreation)) +
+    geom_point() +
+    scale_x_date(date_breaks = "months", date_labels = "%b-%y") +
+    ggtitle(paste("Confirmed COVID-19 cases in", myCountry),
+            subtitle = "Source: 'tidycovid19' R Package") +
+    xlab("Date") +
+    ylab("Daily confirmed cases") +
+    geom_vline(aes(xintercept = as.numeric(as.Date(starts)), color="Start date"), linetype="dashed") +
+    geom_vline(aes(xintercept = as.numeric(as.Date(ends)), color="End date"), linetype="dashed") +
+    labs(color = "Lockdown dates") +
+    scale_color_manual(values = colors)
+  
+  # Print our plot
+  print(plot_confirmed_date)
+}
+```
+
+
+
+```{r}
+plot_GCMRDate_lockdownStartEnd("Spain", 'gcmr_retail_recreation')
+```
+
 
 
 
