@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #This is the new version of the file to be added to the github
+# This is the new new version of the file
 install.packages("devtools")
 library(devtools)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
@@ -63,7 +64,7 @@ for (co in levels(covidData$country)){
 
 
 #Getting rid of countries with populations less than 2,000,000? An option?
-#covidData <- filter(covidData, population > 2000000)
+covidData <- filter(covidData, population > 2000000)
 
 #Optionally: get rid of rows with data missing in ecdc_cases and ecdc_deaths columns
 #covidData <- filter(covidData, !is.na(ecdc_deaths))
