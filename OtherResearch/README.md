@@ -1,0 +1,1 @@
+INformation on corona
