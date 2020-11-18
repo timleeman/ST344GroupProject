@@ -16,9 +16,9 @@ First, we have a look at the tidycovid19 package, and pull the merged data.
 ```{r import_tidycovid19Package, message=FALSE, include=FALSE}
 library(tidycovid19)
 
-merged <- download_merged_data(cached=TRUE)
+#merged <- download_merged_data(cached=TRUE)
 
-View(merged)
+#View(merged)
 ```
 
 We then read our provided .csv file (from ST344), remove the first column and parse the date column as a 'date'.
@@ -107,7 +107,19 @@ We then consider only plotting the 'start' and 'end' dates of lock downs in indi
 We do this by using the Auravision dataset (details on github repository, in "Lockdown Dates" folder's README.md).
 
 ```{r importAuravisionDataset, message=FALSE}
+library(tidyverse)
+
 auravision <- read_csv("AuravisionLockdownDates.csv")
+
+countries <- read_csv("Countries.csv")
+countries <- rename(countries, Country=country, Continent=continent)
+
+# Left-join so we have 'Continent' variable in auravision dataset.
+auravision <- left_join(auravision, countries, by = "Country")
+
+auravision <- auravision %>% filter(Continent %in% c("Europe", "North America", "South America"))
+
+View(auravision)
 ```
 
 As a first example, we plot the UK's confirmed daily cases against date, and add lines for the start and end date of the UK's (first) lockdown.
@@ -145,7 +157,7 @@ tidyAuravisionNational <- auravision %>%
   filter(Level=="National") %>%
   select("Country", "Start date", "End date", "Confirmed")
 
-View(tidyAuravisionNational)
+#View(tidyAuravisionNational)
 
 tidyAuravisionNational <- pivot_longer(tidyAuravisionNational, !c("Country", "Confirmed"), names_to="NationalLockdown", values_to="Date")
 
