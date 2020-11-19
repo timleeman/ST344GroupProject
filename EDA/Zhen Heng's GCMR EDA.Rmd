@@ -1,0 +1,158 @@
+---
+title: "Team 5 Coursework"
+author: '1806082'
+date: "11/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r chunk 1, message = FALSE, echo = FALSE}
+library(dplyr)
+library(tidycovid19)
+CovidData<- download_merged_data(cached = TRUE)
+
+library(lubridate)
+CovidData <- CovidData %>%
+  mutate(date = as.Date(parse_date_time(CovidData$date,orders="ymd")))
+
+```
+
+```{r chunk 2, echo = FALSE}
+#Adding continent to countries
+library(rio)
+Countries<- import("Countries.xlsx", setclass = "tibbles")
+Countries<- filter(Countries, country %in% CovidData$country)
+CovidData<- left_join(CovidData, Countries, by = 'country')
+CovidData<- mutate(CovidData, country = factor(country), continent = factor(continent))
+CountryData<- CovidData %>% select(date,country, confirmed, continent)
+```
+
+```{r chunk 3, echo = FALSE}
+#changing from cumulative to daily confirmed
+firstdiff <- function(x) {                 
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result)
+}
+CountryData<- CountryData %>% mutate(daily_confirmed = firstdiff(confirmed))
+CovidData<- CovidData %>% mutate(daily_confirmed = firstdiff(confirmed))
+CovidData<- CovidData %>% mutate(daily_deaths = firstdiff(deaths))
+```
+
+```{r chunk 4, echo = FALSE, fig.heignt = 10, fig.width = 10}
+library(ggplot2)
+plot_daily_confirmed<- CountryData %>% ggplot(aes(x= date, y= daily_confirmed, group = country, colour = continent))+
+  geom_line()+
+  facet_wrap(~continent)+
+  labs(x ='Date', y = 'Daily Confirmed Cases', title = 'Daily Cases Per Day')+
+  theme(plot.title=element_text(hjust= 0.5, face = 'bold'))
+print(plot_daily_confirmed)
+```
+
+# North America GCMR Against Date
+
+```{r chunk 5, echo = FALSE, warning = FALSE, message =  FALSE, fig.height = 50, fig.width = 50}
+library(dplyr)
+library(ggplot2)
+GCMR_data<- CovidData %>% select(date, country, continent,gcmr_retail_recreation, gcmr_grocery_pharmacy, gcmr_parks, gcmr_transit_stations, gcmr_workplaces, gcmr_residential, daily_confirmed, daily_deaths)
+
+GCMR_NA_data<- GCMR_data %>% filter(continent %in% "North America")
+GCMR_NA_data<- GCMR_NA_data %>% mutate(date = as.Date(parse_date_time(GCMR_NA_data$date, order = "ymd")))
+
+NA_plot_1<- ggplot(GCMR_NA_data, aes(x = date, y = gcmr_grocery_pharmacy, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Groceries and Pharmacies in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_2<-ggplot(GCMR_NA_data, aes(x = date, y = gcmr_retail_recreation, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Retail and Recreation Centres in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_3<-ggplot(GCMR_NA_data, aes(x = date, y = gcmr_parks, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Parks in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_4<-ggplot(GCMR_NA_data, aes(x = date, y = gcmr_transit_stations, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Transit Stations in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_5<-ggplot(GCMR_NA_data, aes(x = date, y = gcmr_workplaces, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Workplaces in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_6<-ggplot(GCMR_NA_data, aes(x = date, y = gcmr_residential, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Residential in NA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+NA_plot_7<- ggplot(GCMR_NA_data,aes(x = date, y = daily_confirmed, colour = country))+
+  geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Cases in NA", x = "Date", y = "Daily confirmed cases")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+NA_plot_8<- ggplot(GCMR_NA_data,aes(x = date, y = daily_deaths, colour = country))+
+  geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Deaths in NA", x = "Date", y = "Daily confirmed deaths")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+library(ggpubr)
+NA_plots<- ggarrange(NA_plot_7, NA_plot_8, ggarrange(NA_plot_1, NA_plot_2, NA_plot_3, NA_plot_4, NA_plot_5, NA_plot_6, nrow =2, ncol = 3 ),nrow = 3)
+
+print(NA_plots)
+
+#ggsave("NA_plots.png", height = 60, width = 50, units = "cm")
+
+
+```
+
+# EU GCMR Against Date
+```{r chunk 6, fig.heignt = 10, fig.width=10, echo = FALSE}
+#plotting europe data
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+GCMR_EU_data<- GCMR_data %>% filter(continent %in% "Europe")
+GCMR_EU_data<- GCMR_EU_data %>% mutate(date = as.Date(parse_date_time(GCMR_EU_data$date, order = "ymd")))
+
+EU_plot_1<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_grocery_pharmacy, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Groceries and Pharmacies in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_2<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_retail_recreation, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Retail and Recreation Centres in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_3<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_parks, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Parks in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_4<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_transit_stations, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Transit Stations in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_5<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_workplaces, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Workplaces in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_6<- ggplot(GCMR_EU_data, aes(x = date, y = gcmr_residential, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Residential in EU", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+EU_plot_7 <- ggplot(GCMR_EU_data,aes(x = date, y = daily_confirmed, colour = country))+
+  geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Cases in EU", x = "Date", y = "Daily confirmed cases")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+EU_plot_8<- ggplot(GCMR_EU_data,aes(x = date, y = daily_deaths, colour = country))+
+  geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Deaths in EU", x = "Date", y = "Daily confirmed deaths")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+library(ggpubr)
+EU_plots<- ggarrange(EU_plot_7, EU_plot_8, ggarrange(EU_plot_1, EU_plot_2, EU_plot_3, EU_plot_4, EU_plot_5, EU_plot_6, nrow =2, ncol = 3 ),nrow = 3)
+
+#ggsave("EU_plots.png", height = 60, width = 70, units = "cm")
+
+```
+# South America GCMR Against Date 
+
+```{r, fig.height= 5, fig.width=10, echo = FALSE}
+#plotting south america data
+GCMR_SA_data<- GCMR_data %>% filter(continent %in% "South America")
+GCMR_SA_data<- GCMR_SA_data %>% mutate(date = as.Date(parse_date_time(GCMR_SA_data$date, order = "ymd")))
+SA_plot_1<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_grocery_pharmacy, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Retail and Recreation Centres in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_2<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_retail_recreation, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Retail and Recreation Centres in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_3<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_parks, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Parks in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_4<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_transit_stations, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Transit Stations in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_5<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_workplaces, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Workplaces in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_6<- ggplot(GCMR_SA_data, aes(x = date, y = gcmr_residential, colour = country))+geom_line()+ scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Activity in Residential in SA", x = "Date", y = "Activity Level")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour ='black')
+
+SA_plot_7<- EU_plot_7 <- ggplot(GCMR_SA_data,aes(x = date, y = daily_confirmed, colour = country))+geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Cases in SA", x = "Date", y = "Daily confirmed cases")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+SA_plot_8<- ggplot(GCMR_SA_data,aes(x = date, y = daily_deaths, colour = country))+
+  geom_line()+scale_x_date(breaks = 'months', date_labels = "%d-%b")+labs(title = "Daily Confirmed Deaths in SA", x = "Date", y = "Daily confirmed deaths")+theme(plot.title = element_text(face = 'bold',hjust = 0.5))+geom_smooth(colour = 'black')
+
+library(ggpubr)
+SA_plots<- ggarrange(SA_plot_7, SA_plot_8, ggarrange(SA_plot_1, SA_plot_2, SA_plot_3, SA_plot_4, SA_plot_5, SA_plot_6, nrow =2, ncol = 3 ),nrow = 3)
+
+#ggsave("SA_plots.png", height = 60, width = 50, units = "cm")
+```
+
+
+
