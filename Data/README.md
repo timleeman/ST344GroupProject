@@ -2,4 +2,6 @@
 
 ### Continents.csv
 
+This is the list of countries and which continent they are in. Turkey has been added to Europe since we want to consider it in our analysis
+
 ### TidyCovid19DataSet.csv
