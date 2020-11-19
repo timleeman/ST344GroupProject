@@ -1,6 +1,8 @@
 # Folder: ST344GroupProject
 
-### Countries.xlsx
+### ~~Countries.xlsx~~
+File has been removed, please use Continents.csv in the Data folder instead
+
 
 ### How-COVID-19-is-changing-consumer-behaviornow-and-forever.pdf
 
