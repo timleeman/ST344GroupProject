@@ -18,6 +18,6 @@ It produces 3 important objects:
 You can get the data for just the chosen countries using `filter(covidData, country %in% chosenCountries)`
 
 
-### tidycovid19.csv
+### ~~tidycovid19.csv~~
 This is the (old) snapshot of the tidycovid19 package's dataset, as provided by the ST344 Moodle webpage.
-We will no longer be using this dataset, as we are creatign our own snapshot to use for our investigation.
+We will no longer be using this dataset, as we are creating our own snapshot to use for our investigation.
