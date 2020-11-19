@@ -14,7 +14,7 @@ It produces 3 important objects:
 + auravisionData: The auravision data set for lockdown dates, in a tibble
 + chosenCountries: The list of the countries we have chosen to analyse, in a character vector
 
-You can get the data for just the chosen countries using filter(covidData, country %in% chosenCountries)
+You can get the data for just the chosen countries using `filter(covidData, country %in% chosenCountries)`
 
 
 ### tidycovid19.csv
