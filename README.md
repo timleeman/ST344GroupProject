@@ -8,6 +8,7 @@ File has been removed, please use Continents.csv in the Data folder instead
 
 ### setup.R
 This script installs all of the packages and sets up all of the data we are using
+
 It produces 3 important objects:
 
 + covidData: our copy of the tidycovid19 data, snapshot taken on 19/11/2020, with continent data added (in a tibble)
