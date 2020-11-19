@@ -10,26 +10,33 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-#This is the new version of the file to be added to the github
-# This is the new new version of the file
 install.packages("devtools")
 library(devtools)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
-
 auravision <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/LockdownDates/AuravisionLockdownDates.csv")
+```
 
 
+
+```{r}
 covidData <- download_merged_data(cached = TRUE, silent = TRUE)
 countries <- import("Countries.xlsx", setclass = "tibble")
 countries <- filter(countries, country %in% covidData$country)
 covidData <- left_join(covidData, countries, by = "country")
 covidData <- mutate(covidData, country = factor(country), continent = factor(continent))
+#Make country a factor
+covidData$country <- as.factor(covidData$country)
 ```
 
-
+First we filter our data sets so we only get countries we are interested in for the report. We also include Turkey as our continent guide gives us that Turkey is in Asia but we consider it closely tied to Europe so we will include it in the data set.
 ```{r}
 #Getting just the relevant continents
-covidData <- filter(covidData, continent == "Europe" | continent == "North America" | continent == "South America")
+covidData <- filter(covidData, continent == "Europe" | continent == "North America" | continent == "South America" | country == "Turkey")
+```
+
+This next part removes countries from the data set for which there is an excessive amount of data missing from the google mobility trends data set. We chose to set the threshold to be 100 missing values as this should remove only countries where effectively all of the data is missing (each country usually has 302 rows in the data set)
+
+```{r}
 co <- ""
 missing <- 0
 
@@ -41,7 +48,7 @@ for (co in levels(covidData$country)){
       missing = missing + 1
     }
   }
-  #50 can be changed to another threshold
+  #100 can be changed to another threshold
   if(missing >= 100){
     covidData <- filter(covidData, country != co)
   }
@@ -55,21 +62,21 @@ for (co in levels(covidData$country)){
       missing = missing + 1
     }
   }
-  #50 can be changed to another threshold
+  #100 can be changed to another threshold
   if(missing >= 100){
     covidData <- filter(covidData, country != co)
   }
 }
+```
 
+This gets rid of countries with population less than 1000000 as we expect them to behave differently than average countries.
+```{r}
+#Getting rid of countries with populations less than 1,000,000
+covidData <- filter(covidData, population > 1000000)
+```
 
-
-#Getting rid of countries with populations less than 2,000,000? An option?
-covidData <- filter(covidData, population > 2000000)
-
-#Optionally: get rid of rows with data missing in ecdc_cases and ecdc_deaths columns
-#covidData <- filter(covidData, !is.na(ecdc_deaths))
-
-
+Finally this gets rid of any empty levels (names of factors) in the data set and gives the list of countries left.
+```{r}
 covidData <- droplevels(covidData)
 levels(covidData$country)
 ```
