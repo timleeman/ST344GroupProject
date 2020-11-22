@@ -1,0 +1,162 @@
+---
+title: "Averages+other stuff "
+author: '1825867'
+date: "19/11/2020"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("Rtools")
+install.packages("tidyverse")
+install.packages("tidycovid19")
+library(dplyr)
+library(readxl)
+library(zoo) # moving averages        
+library(tidyverse)
+```
+
+```{r setup}
+CovidData <- read.csv("tidycovid19.csv")
+
+
+library(rio)
+Countries <- import("Countries.xlsx", setclass = "tibble")
+Countries <- filter(Countries, country %in% CovidData$country)
+CountryData <- left_join(CovidData, Countries, by = "country")
+CountryData <- mutate(CountryData, country = factor(country),
+                      continent = factor(continent))
+
+
+
+#Getting just the relevant continents
+covidData <- filter(CountryData, continent == "Europe" | continent == "North America" | continent == "South America")
+co <- ""
+missing <- 0
+#Remove countries with excessive amounts of data missing in gcmr_retail_recreation column
+for (co in levels(covidData$country)){
+  missing <- 0
+  for(x in filter(covidData, country == co)$gcmr_retail_recreation){
+    if(is.na(x)){
+      missing = missing + 1
+    }
+  }
+  #50 can be changed to another threshold
+  if(missing >= 100){
+    covidData <- filter(covidData, country != co)
+  }
+}
+#Remove countries with excessive amounts of data missing in gcmr_grocery_pharmacy column
+for (co in levels(covidData$country)){
+  missing <- 0
+  for(x in filter(covidData, country == co)$gcmr_grocery_pharmacy){
+    if(is.na(x)){
+      missing = missing + 1
+    }
+  }
+  #50 can be changed to another threshold
+  if(missing >= 100){
+    covidData <- filter(covidData, country != co)
+  }
+}
+```
+
+```{r}
+#Getting rid of countries with populations less than 2,000,000? An option?
+covidData <- filter(covidData, population > 2000000)
+#Optionally: get rid of rows with data missing in ecdc_cases and ecdc_deaths columns
+#covidData <- filter(covidData, !is.na(ecdc_deaths))
+covidData <- droplevels(covidData)
+levels(covidData$country)
+```
+
+```{r}
+GCMRAVG <- as.numeric(((covidData$gcmr_retail_recreation)+(covidData$gcmr_grocery_pharmacy)+(covidData$gcmr_transit_stations)+(covidData$gcmr_parks)+(covidData$gcmr_workplaces))*0.2)
+covidData <- cbind(covidData, GCMRAVG)
+
+firstdiff <- function(x) {
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result)
+}
+
+covidData <- covidData %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+
+
+EUCD <- {covidData %>%
+    filter(continent == "North America")}
+
+activityAVG <- {EUCD %>%
+    group_by(date)%>%
+    summarize(avg_of_gcmr = mean(GCMRAVG)) %>% filter( (date > as.Date("2020-02-23")) & (date < as.Date("2020-08-15")) )}
+
+activityAVG$date <- as.Date(activityAVG$date)
+
+dcAVG <- {EUCD %>%
+    group_by(date)%>%
+    summarize(avg_of_dailyconfirmed = mean(daily_confirmed)) %>% filter( (date > as.Date("2020-02-23")) & (date < as.Date("2020-08-15")) )}
+
+dcAVG$date <- as.Date(dcAVG$date)
+
+percentages<- activityAVG %>% left_join(dcAVG)
+
+
+
+percentages <- percentages %>%
+  mutate(pcchangeavg = 100 * (avg_of_gcmr - lag(avg_of_gcmr))/lag(avg_of_gcmr))
+percentages <- percentages %>%
+  mutate(pcchangedc = 100 * (avg_of_dailyconfirmed - lag(avg_of_dailyconfirmed))/lag(avg_of_dailyconfirmed))
+```
+
+##
+
+```{r plots}
+library(ggplot2)
+ggplot(percentages, aes(x = date, y = avg_of_gcmr)) +
+  labs( x = "Time", y = "GCMR average_bycontinent",
+        subtitle = "North America") + geom_point()+
+  scale_x_date(date_breaks = "months", date_labels = "%b-%y")
+
+library(ggplot2)
+ggplot(percentages, aes(x = date, y = avg_of_dailyconfirmed)) +
+  labs( x = "Time", y = "AVG dailyconfirmed",
+        subtitle = "North America") + geom_point()+
+  scale_x_date(date_breaks = "months", date_labels = "%b-%y")
+```
+
+
+
+```{r plots}
+percentages <- percentages %>% mutate(dc_07da = zoo::rollmean(pcchangedc, k = 5, fill = NA))
+percentages <- percentages %>% mutate(gcmr_07da = zoo::rollmean(pcchangeavg, k = 3, fill = NA))
+percentages <- percentages %>% mutate(gcmrdirect = zoo::rollmean(avg_of_gcmr, k = 4, fill = NA))
+percentages <- percentages %>% mutate(led = lead(avg_of_dailyconfirmed, k = 14))
+percentages <- percentages %>% mutate(dcdirect = zoo::rollmean(led, k = 5, fill = NA))
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r plots}
+library(ggplot2)
+ggplot(percentages, aes(y = gcmrdirect, x = dcdirect)) +
+  labs( y = "GCMR 4 day moving average", x = "Daily cases 2 week in future(5 day moving average)",
+        subtitle = "Data source: Tim's Filter, NA") + geom_point()
+
+
+
+library(ggplot2)
+ggplot(percentages, aes(x = date, y = dc_07da)) +
+  labs( x = "time", y = "3 day moving average of percent change in daily cases",subtitle = "Data source: Tim's Filter, NA") + geom_point()+
+  scale_x_date(date_breaks = "months", date_labels = "%b-%y")
+
+library(ggplot2)
+ggplot(percentages, aes(x = date, y = dcdirect)) +
+  labs( x = "date", y = "5 day moving average of daily cases (lead by 2 weeks)",subtitle = "Data source: Tim's Filter, NA") + geom_point()+
+  scale_x_date(date_breaks = "months", date_labels = "%b-%y")
+```
+
+
+
+
