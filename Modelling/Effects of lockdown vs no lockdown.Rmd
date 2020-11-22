@@ -1,0 +1,118 @@
+---
+title: "Untitled"
+author: '1806082'
+date: "11/20/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r setting up the data}
+AuraData<- read.csv("AuravisionLockdownDates.csv")
+AuraData<- AuraData %>% filter(Country %in% CovidData$country)
+Countries_got_lockdown<- CovidData %>% filter(country %in% AuraData$Country)
+Countries_no_lockdown<- CovidData %>% filter(!(country%in%AuraData$Country))
+```
+
+```{r selecting continent}
+Continent_lockdowns<- Countries_got_lockdown %>% filter(continent %in% 'Europe')
+Continent_no_lockdowns<- Countries_no_lockdown %>% filter(continent %in% 'Europe')
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = gcmr_grocery_pharmacy, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = gcmr_grocery_pharmacy, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = gcmr_parks, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = gcmr_parks, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_transit_stations, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_transit_stations, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_workplaces, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_workplaces, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_residential, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = confirmed, y = gcmr_residential, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = deaths, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = deaths, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = confirmed, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = confirmed, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = daily_confirmed, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = daily_confirmed, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+Continent_lockdowns %>% ggplot(aes(x = date, y = daily_deaths, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries with lockdowns")
+
+Continent_no_lockdowns %>% ggplot(aes(x = date, y = daily_deaths, colour = country))+geom_line()+geom_smooth(colour = 'black')+labs(title = "Countries without lockdowns")
+```
+
+```{r}
+library(dplyr)
+df_total<- CovidData %>% 
+  group_by(country)%>%
+  summarise(total_cases = max(confirmed, na.rm = TRUE))
+
+df_1<- df_total %>% filter(country %in% Europe_lockdowns$country)
+df_2<- df_total %>% filter(country %in% Europe_no_lockdowns$country)
+df_1<- cbind(got_lock = 1, df_1)
+df_2<- cbind(got_lock = 0, df_2)
+df_total<- rbind(df_1, df_2)
+
+
+df_total$total_cases[which(is.nan(df_total$total_cases))] = NA
+df_total$total_cases[which(df_total$total_cases==Inf)] = NA
+df_total$total_cases[which(df_total$total_cases==-Inf)] = NA
+
+
+df_total %>% ggplot(aes(x = got_lock, y = total_cases, colour = country))+geom_point()+geom_smooth(method = 'lm', colour = 'green', se = FALSE)
+
+lm_1<- lm(df_total$total_cases~df_total$got_lock)
+summary(lm_1)
+```
+
+
+
+
+
+
