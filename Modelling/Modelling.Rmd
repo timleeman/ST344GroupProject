@@ -26,7 +26,8 @@ TidyData <- mutate(TidyData, country = factor(country), continent = factor(conti
 national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
 national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`Start date`, `End date`)))
 colnames(national_lockdowns)[1] = "country"
-head(national_lockdowns,60)
+national_lockdowns <- filter(national_lockdowns, country %in% chosenCountries)
+head(national_lockdowns %>% select(country, national_lockdown_length) %>% arrange(national_lockdown_length),60)
 
 ```
 
@@ -109,7 +110,7 @@ plot_country_lockdown_gcmr_retail <- function(cou){
 #plot_country_lockdown_gcmr_retail("Germany")
 
 
-ggplot(modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line() 
+ggplot(modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
 
 ggplot(modelData %>% filter(continent== "North America"), aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= income)) + geom_line() + facet_grid(~continent)
 
@@ -126,7 +127,20 @@ summary(model1)
 
 ```
 
+```{r grouping_by_lockdown_length, warning=FALSE}
+# ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
+#   geom_histogram(breaks= seq(0,160,25)) 
 
+average_lockdown_length <- national_lockdowns %>% filter(national_lockdown_length <= 77 & national_lockdown_length > 48)
+
+
+average_lockdown_modelData <- modelData %>% filter(country %in% average_lockdown_length$country)
+
+ggplot(average_lockdown_modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
+
+model2 <- lm(data= average_lockdown_modelData, gcmr_retail_recreation ~ days_in_lockdown)
+summary(model2)
+```
 
 
 
