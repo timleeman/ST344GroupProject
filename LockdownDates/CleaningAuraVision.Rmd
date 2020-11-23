@@ -1,0 +1,79 @@
+---
+title: "Reproducibly Cleaning the Aura Vision Dataset"
+author: "Mai-An Dang"
+date: "23/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+First we run our team's setup.R script.
+```{r setup.Rscript}
+library(devtools)
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+```
+
+Then we filter on our chosen countries, as defined by the setup script.
+```{r filteringChosenCountries}
+auravisionData <- auravisionData %>% filter(Country %in% chosenCountries)
+```
+
+## Cleaning our dataset
+
+We are going to rename our columns using CamelBack font type, with the first character capital. We are doing this to remove all spaces within variable names.
+```{r renameColumns}
+auravisionData <- rename(auravisionData, StartDate = 'Start date', EndDate = 'End date')
+```
+
+We are not going to be using non-national (e.g. city-wide or regional) lockdowns for our investigation much. Therefore, we shall focus our efforts on cleaning the rows of our dataset that pertain to national lockdowns.
+
+Here, we check for countries with National lockdowns that have a missing start or end date. 
+```{r missingEndDate}
+auravisionData %>% filter(Level=='National' & (is.na(StartDate) | is.na(EndDate)))
+```
+After doing some (brief) research online, it seems that Panama is still in lockdown. Therefore, we can accept this missing end date; it is the result of an unknown end date, and not a missing data value.
+
+```{r findMultipleRows}
+auravisionData %>% 
+  filter(Level=='National') %>%
+  group_by(Country) %>%
+  filter(n()>1) %>%
+  arrange(Country, StartDate)
+```
+### Honduras
+The Honduras had a slightly staggered lockdown. Four municipalities implemented a lockdown and then within less than a week the rest of the country also went into lockdown. We shall be taking using the row in our dataset that refers to the country as a whole (and not to Place=="Rest of area")
+
+### Mexico
+After doing some (brief) research online, it seems that Mexico City remained in lockdown after the end of the national lockdown. The date at which the majority of the country's lockdown ended was 2020-06-01. Therefore we choose this as our end date.
+
+### Turkey
+The source for Turkey's 'second' national lockdown (i.e. Place=="Turkey(second implementation)") is no longer available. As it only spans four days, this may not have been a significant impact on the variables we are observing, therefore we shall ignore this row in our dataset.
+Turkey's 'first' national lockdown (i.e. Place=="Turkey(first implementation)") also only spans two days. Therefore, for the same reasons, we dismiss this row and only observe the row where ther variable Place is missing.
+
+```{r cleanMultipleRows}
+# These are the rows for national lockdowns that we want, for our three countries with multiple national lockdowns in the AuraVision dataset.
+auravisionData %>%
+  filter((Country=='Honduras' & is.na(Place)) |
+           (Country=='Mexico' & !is.na(Place)) |
+           (Country=='Turkey' & is.na(Place)))
+
+auravisionData <- subset(auravisionData,
+       (!Country %in% c("Honduras", "Mexico", "Turkey")) | # Take any rows if not in our three countries.
+         Level != 'National' | # Take any rows if not related to a national lockdown.
+         (Country=='Honduras' & is.na(Place)) |
+         (Country=='Mexico' & !is.na(Place)) |
+         (Country=='Turkey' & is.na(Place))) %>% arrange(Country)
+
+```
+## Exporting .csv file
+
+Finally, we export this as a .csv so that it can be easily used by the whole team.
+```{r}
+write_csv(auravisionData, "AuraVisionCleaned.csv", na="")
+```
+
+
