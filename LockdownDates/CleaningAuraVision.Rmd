@@ -15,6 +15,10 @@ First we run our team's setup.R script.
 ```{r setup.Rscript}
 library(devtools)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+
+# This is where the (old) .csv of the setup script pointed to for the Aura Vision dataset.
+# The .csv file created at the end of this file is where the setup file will now point to, for variable auravisionData.
+auravisionData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/LockdownDates/AuravisionLockdownDates.csv")
 ```
 
 Then we filter on our chosen countries, as defined by the setup script.
