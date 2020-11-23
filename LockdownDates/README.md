@@ -3,7 +3,11 @@
 ### ACAPSCovid19GovernmentMeasures.csv
 Source: https://www.acaps.org/covid-19-government-measures-dataset  
 Comments: High level of detail, records all government interventions.  
-Use: To be examined directly when needing more detail on a specific country.  
+Use: To be examined directly when needing more detail on a specific country.
+
+### CleaningAuraVision.Rmd
+This file contains the reproducible steps taken to 'clean' the Aura Vision dataset.
+The output .csv file can be found in ST344GroupProject > Data.
 
 ### AuravisionLockdownDates.csv
 Source: https://auravision.ai/covid19-lockdown-tracker/  
