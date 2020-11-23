@@ -7,7 +7,11 @@ File has been removed, please use Continents.csv in the Data folder instead
 ### How-COVID-19-is-changing-consumer-behaviornow-and-forever.pdf
 
 ### setup.R
-This script installs all of the packages and sets up all of the data we are using
+This script installs all of the packages we need, **please add to this file if you are using a new package**
+
+### getdata.R
+
+This script sets up all of the data we are using
 
 It produces 3 important objects:
 
