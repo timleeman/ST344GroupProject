@@ -1,0 +1,132 @@
+---
+title: "TeamAssignment"
+author: "u1805379"
+date: "14/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploring and Analysing patterns in COVIDData
+
+
+```{r chunk1, include=FALSE}
+library(dplyr)
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(stringr)
+library(rio)
+```
+
+```{r chunk2}
+CovidData <- read.csv("tidycovid19.csv")
+CovidData$date = as.Date(parse_date_time(CovidData$date,orders=c("y","ym","ymd")))
+Countries <- import("Countries.xlsx", setclass = "tibble")
+CovidData <- left_join(CovidData, Countries, by= "country")
+
+TidyData <- CovidData %>% group_by(country) 
+TidyData <- mutate(TidyData, country = factor(country), 
+                    continent = factor(continent))
+
+countries_of_interest <- c("United Kingdom", "United States", "France", "Spain", "Germany", "Mexico", "Canada", "Belgium")
+
+TidyData <- filter(TidyData, country %in% countries_of_interest)
+
+```
+
+
+```{r chunk8}
+pub_health_lockdown <-TidyData %>% select(country, pub_health, lockdown) %>% na.omit() %>%
+                                  summarise(max_lockdown = max(lockdown), max_pub_health = max(pub_health))
+
+ggplot(pub_health_lockdown, aes(x= max_lockdown,
+                                y= max_pub_health)) +
+       geom_point()
+
+```
+
+
+```{r chunk3}
+max_pub_health_gmcr_retail <- TidyData %>% select(country, pub_health, gcmr_retail_recreation) %>% na.omit() %>% 
+                                           summarise(max_pub_health = max(pub_health), min_gcmr_retail = min(gcmr_retail_recreation))
+#max_pub_health_gmcr_retail <- max_pub_health_gmcr_retail %>% arrange(desc(min_gcmr_retail), .by_group= FALSE)
+head(max_pub_health_gmcr_retail,50)
+ggplot(max_pub_health_gmcr_retail, aes(x= country,
+                                       y= max_pub_health,
+                                       fill= min_gcmr_retail)) +
+      geom_col() +
+      scale_x_discrete(labels= substr(max_pub_health_gmcr_retail$country, 0, 4)) +
+      labs(x= "First four letters of Country",
+           y= "Public health measures",
+           title= "Maximum number of public health measures per country",
+           subtitle= "Colour represents the highest change in gcmr trends")
+
+#The number of public health measures reported seems to be as a function of the size of the country or the number of different regions within it
+```
+
+
+```{r chunk4}
+max_pub_health_gmcr_grocery <- TidyData %>% select(country, pub_health, gcmr_grocery_pharmacy) %>% na.omit() %>% 
+                                            summarise(max_pub_health = max(pub_health), min_gcmr_grocery = min(gcmr_grocery_pharmacy))
+
+#head(max_pub_health_gmcr_grocery,20)
+ggplot(max_pub_health_gmcr_grocery, aes(x= max_pub_health,
+                                        y= min_gcmr_grocery)) +
+      geom_point() +
+      geom_text(label= max_pub_health_gmcr_grocery$country, 
+                 hjust= 0.5, 
+                 vjust= -0.5) +
+      labs(x= "Public health measures",
+           y= "Change in vists to groceries/pharamacies",
+           title= "Maximum public health measures versus decrease to groceries/pharamcies")
+```
+
+```{r chunk6}
+max_lockdown_gmcr_grocery <- TidyData %>% select(country, lockdown, gcmr_grocery_pharmacy) %>% na.omit() %>% 
+                                          summarise(max_lockdown = max(lockdown), min_gcmr_grocery = min(gcmr_grocery_pharmacy))
+head(max_lockdown_gmcr_grocery,20)
+ggplot(max_lockdown_gmcr_grocery, aes(x= max_lockdown,
+                                        y= min_gcmr_grocery)) +
+      geom_point() +
+      geom_text(label= max_lockdown_gmcr_grocery$country, 
+                 hjust= 0.5, 
+                 vjust= -0.5) +
+      labs(x= "Lockdown measures",
+           y= "Change in vists",
+           title= "Maximum lockdown measures versus decrease to groceries/pharamcies")
+```
+
+
+```{r chunk5}
+max_lockdown_gmcr_retail <- TidyData %>% select(country, lockdown, gcmr_retail_recreation) %>% na.omit() %>% 
+                                         summarise(max_lockdown = max(lockdown), min_gcmr_retail = min(gcmr_retail_recreation))
+#max_pub_health_gmcr_retail <- max_pub_health_gmcr_retail %>% arrange(desc(min_gcmr_retail), .by_group= FALSE)
+head(max_lockdown_gmcr_retail,20)
+ggplot(max_lockdown_gmcr_retail, aes(x= country, 
+                                       y= max_lockdown,
+                                       fill= min_gcmr_retail)) +
+      geom_col() +
+      scale_x_discrete(labels= substr(max_lockdown_gmcr_retail$country, 0, 4)) +
+      labs(x= "First four letters of Country", 
+           y= "Lockdown measures",
+           title= "Maximum number of lockdown measures per country",
+           subtitle= "Colour represents the highest change in gcmr trends")
+```
+
+```{r chunk7}
+correlations <- TidyData %>% select(country, lockdown, pub_health, gcmr_retail_recreation, gcmr_grocery_pharmacy) %>% na.omit() %>% 
+                             summarise(lockdown_gcmr_retail_correl = cor(lockdown, gcmr_retail_recreation),
+                                       lockdown_gcmr_grocery_correl = cor(lockdown, gcmr_grocery_pharmacy),
+                                       pub_health_gcmr_retail_correl = cor(pub_health, gcmr_retail_recreation),
+                                       pub_health_gcmr_grocery_correl = cor(pub_health, gcmr_grocery_pharmacy))
+
+head(correlations,20)
+
+# cases <- TidyData %>% filter(country == "United Kingdom")
+# cases %>% select(country, lockdown, gcmr_retail_recreation) %>% head(200)
+
+```
+
