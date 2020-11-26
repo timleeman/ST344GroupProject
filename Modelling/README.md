@@ -9,3 +9,5 @@ Based on the histogram of lockdown length the majority of countries fall between
 The code for the histogram is commented out in the r file.
 
 I made a template for these countries and checked the model just to see but a function to select specific countries based on lockdown length would be more reproducible 
+
+effects analysis.rmd has the modelling of GCMR data
