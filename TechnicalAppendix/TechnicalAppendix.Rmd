@@ -170,7 +170,6 @@ This `.csv` of the tidied dataset was then uploaded to our github repository [he
 
 
 ```{r setting up functions}
-library(dplyr)
 firstdiff <- function(x) {                 
   shifted <- c(0,x[1:(length(x)-1)])
   result = x-shifted
@@ -228,47 +227,9 @@ plot_2<- filter(covidData1, national_lock %in% 1) %>%
 
 ```
 
-```{r effects of national lockdown on activities in parks, , warning = FALSE, message = FALSE}
-plot_3<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_parks)) +
-  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Parks', x= "Date", y = 'Activity in Parks')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
-
-```{r effects of national lockdown on transits and stations, , warning = FALSE, message = FALSE}
-plot_4<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_transit_stations)) +
-  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Transit Stations', x= "Date", y = 'Activity in Transit Stations')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
-
-```{r effects of national lockdown on workplaces, , warning = FALSE, message = FALSE}
-plot_5<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_workplaces)) +
-  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Workplaces', x= "Date", y = 'Activity in Workplaces')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
 
 ```{r arranging the plots, fig.height = 10, fig.width= 15, warning = FALSE, message = FALSE}
-plot_final<- ggarrange(plot_1, plot_2, plot_4, plot_5,ncol = 2, nrow = 2)
+plot_final<- ggarrange(plot_1, plot_2, ncol = 1, nrow = 2)
 
 plot_final
 ```
@@ -281,15 +242,16 @@ covidData3<- covidData1 %>% filter((date > as.Date("2020-04-16")))
 ```
 
 ```{r}
-lm(gcmr_retail_recreation ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
+firstStageModelRetail <- lm(gcmr_retail_recreation ~ national_lock + confirmed_per_capita + daily_deaths, data = covidData2)
+summary(firstStageModelRetail)
+anova(firstStageModelRetail)
 ```
 
-```{r}
-lm(gcmr_workplaces ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
-```
 
 ```{r}
-lm(gcmr_grocery_pharmacy ~0 + national_lock + confirmed_per_capita, data = covidData2) %>% summary()
+firstStageModelGrocery <- lm(gcmr_grocery_pharmacy ~ national_lock + confirmed_per_capita, data = covidData2)
+summary(firstStageModelGrocery)
+anova(firstStageModelGrocery)
 ```
 
 ```{r}
@@ -310,13 +272,13 @@ covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income)
 covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
   geom_smooth(aes(group = income))+scale_x_date(breaks = 'months', date_labels = '%b')
 
-lm(gcmr_retail_recreation ~ 0 + income + national_lock, data = filter(covidData3, date>as.Date("2020-08-15"))) %>% summary()
+lm(gcmr_retail_recreation ~ income + national_lock, data = filter(covidData3, date>as.Date("2020-08-15"))) %>% summary()
 ```
 
 
 ```{r glm for gcmr_reatail_recreation}
 minModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ 1)
-maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed + gdp_capita + factor(income))
 
 autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
@@ -329,7 +291,7 @@ summary(autoBoth)
 
 ```{r glm for gcmr_grocery_pharmacy}
 minModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~ 1)
-maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed + gdp_capita)
 
 autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
@@ -388,13 +350,11 @@ get_lockdown_data <- function(cou){
                            rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA))
   return(lockdown_data)
 }
-lockdown_data <- data_frame()
+lockdown_data <- tibble()
 for(cou in national_lockdowns$country){
   a <- get_lockdown_data(cou)
   lockdown_data <- rbind(a, lockdown_data)
 }
-
-#get_lockdown_data("France")
 ```
 
 
@@ -413,7 +373,7 @@ head(lockdown_data,100)
 ```{r model_data,}
 average_temperature <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
 modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
-                                      rolling_gcmr_grocery, days_in_lockdown, income) %>%  distinct()
+                                      rolling_gcmr_grocery, gcmr_retail_recreation, gcmr_grocery_pharmacy, days_in_lockdown, income) %>%  distinct()
 modelData <- left_join(modelData, average_temperature, by= "country")
 
 modelData$gdp_capita <- scale(modelData$gdp_capita)
@@ -471,14 +431,16 @@ national_lockdowns <- national_lockdowns %>%mutate(lockdownCategory = lockdownCa
 modelData <- left_join(modelData, national_lockdowns, by = "country")
 #gets rid of the Place column, it was causing probblems with stepwise regression and is basically useless here
 modelData$Place <- NULL
-#ggplot(average_lockdown_modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
-#model2 <- lm(data= average_lockdown_modelData, gcmr_retail_recreation ~ days_in_lockdown)
-#summary(model2)
+```
+
+
+```{r}
+
+initialModel <- glm(data = modelData, rolling_gcmr_retail ~ national_lockdown_length)
+summary(initialModel)
 #A minimal and maximal model we want to consider, haven't yet considered interactions between variables
 minModel <- glm(data = modelData, rolling_gcmr_retail ~ 1)
-maxModel <- glm(data = modelData, rolling_gcmr_retail ~ gdp_capita + days_in_lockdown + 
-                                                            average_temperature + 
-                                                            national_lockdown_length + factor(lockdownCategory))
+maxModel <- glm(data = modelData, rolling_gcmr_retail ~ gdp_capita + average_temperature + national_lockdown_length)
 #stepwise regression backwards, forwards and both directions
 autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
@@ -487,5 +449,120 @@ summary(autoBack)
 summary(autoForward)
 summary(autoBoth)
 #Forward, backward and both directions stepwise regression all choose the same model which is encouraging
+```
+
+##Investigating lockdown recovery
+
+
+```{r recovery}
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/getdata.R")
+covidData$date = as.Date(parse_date_time(covidData$date,orders=c("y","ym","ymd")))
+TidyData <- covidData %>% group_by(country) 
+TidyData <- mutate(TidyData, country = factor(country), continent = factor(continent))
+
+national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
+national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`StartDate`, `EndDate`)))
+colnames(national_lockdowns)[1] = "country"
+head(national_lockdowns,60)
+```
+
+
+
+```{r pressure, echo=FALSE}
+
+#rearranging so day 0 is the end of each country's respective lockdowns
+
+selectData <- filter(covidData, country %in% chosenCountries)
+#Function to select country
+lockdown_start_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`StartDate`)
+  return(a$`StartDate`[1]) 
+}
+lockdown_end_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`EndDate`)
+  return(a$`EndDate`[1]) 
+}
+
+get_lockdown_data <- function(cou){
+  lockdown_data <- selectData %>% filter(country == cou) %>% 
+    filter(date >= lockdown_end_date(cou))  %>%
+    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_end_date(cou), date)/86400))
+  return(lockdown_data)
+}
+
+lockdown_data <- data_frame()
+for(cou in national_lockdowns$country){
+  a <- get_lockdown_data(cou)
+  lockdown_data <- rbind(a, lockdown_data)
+}
+
+lockdown_data <- left_join(lockdown_data, national_lockdowns, by = "country")
+```
+
+```{r }
+### plotting recovery with gradient based on total length
+ggplot(lockdown_data, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country)) +
+  geom_line(aes(colour = lockdown_data$national_lockdown_length ))+scale_colour_gradient(low = "yellow", high = "blue")+
+  labs( x = "Days out of lockdown", y = "GCMR retail/recreation")
+
+model1 <- lm(data= lockdown_data, gcmr_retail_recreation ~ national_lockdown_length)
+summary(model1)
 
 ```
+
+```{r }
+### modelling
+
+minModel <- glm(data = lockdown_data, gcmr_retail_recreation ~ 1)
+maxModel <- glm(data = lockdown_data, gcmr_retail_recreation ~ gdp_capita + days_in_lockdown  + 
+                  national_lockdown_length + average_temp)
+#stepwise regression backwards, forwards and both directions
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+
+install.packages("leaps")
+
+library(tidyverse)
+library(caret)
+library(leaps)
+
+regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_in_lockdown + 
+                              national_lockdown_length, data = modelData)
+plot(regsubsetsOut, scale = "Cp")
+
+```
+
+
+
+```{r }
+###now plotting with moving average of gcmr
+lockdown_data <- lockdown_data %>% mutate(rr_avg = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA))
+
+ggplot(lockdown_data, aes(x=days_in_lockdown, y= rr_avg, group= country)) +
+  geom_line(aes(colour = lockdown_data$national_lockdown_length ))+scale_colour_gradient(low = "yellow", high = "blue")+
+  labs( x = "Days out of lockdown", y = "GCMR retail/recreation")
+
+model2 <- lm(data= lockdown_data, rr_avg ~ national_lockdown_length)
+summary(model2)
+
+
+minModel <- glm(data = lockdown_data, rr_avg ~ 1)
+maxModel <- glm(data = lockdown_data, rr_avg ~ gdp_capita + days_in_lockdown  + 
+                  national_lockdown_length)
+#stepwise regression backwards, forwards and both directions
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+```
+
+
+
+
+
