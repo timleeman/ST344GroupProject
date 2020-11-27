@@ -12,54 +12,51 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r libraries, include=FALSE}
 library(ggplot2)
 library(devtools)
-source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
-```
-
-```{r data_import, include=FALSE}
+library(zoo)
 covidData$date = as.Date(parse_date_time(covidData$date,orders=c("y","ym","ymd")))
 TidyData <- covidData %>% group_by(country) 
 TidyData <- mutate(TidyData, country = factor(country), continent = factor(continent))
-
 ```
 
 ```{r lockdown_length calculator,}
 national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
-national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`Start date`, `End date`)))
+national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`StartDate`, `EndDate`)))
 colnames(national_lockdowns)[1] = "country"
 national_lockdowns <- filter(national_lockdowns, country %in% chosenCountries)
 head(national_lockdowns %>% select(country, national_lockdown_length) %>% arrange(national_lockdown_length),60)
-
 ```
 
 ```{r functions_to_get_lockdown_data_and_bind,}
 selectData <- filter(covidData, country %in% chosenCountries)
 #Function to select country
-
+pre_lockdown_start_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`StartDate`)
+  return(a$`StartDate`[1] - 7) 
+}
 lockdown_start_date <- function(cou){
-  a <- national_lockdowns %>% filter(country == cou) %>% select(`Start date`)
-  return(a$`Start date`[1]) 
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`StartDate`)
+  return(a$`StartDate`[1]) 
 }
-
 lockdown_end_date <- function(cou){
-  a <- national_lockdowns %>% filter(country == cou) %>% select(`End date`)
-  return(a$`End date`[1]) 
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`EndDate`)
+  return(a$`EndDate`[1]) 
 }
-
 get_lockdown_data <- function(cou){
   lockdown_data <- selectData %>% filter(country == cou) %>% 
-                    filter(date >= lockdown_start_date(cou)) %>%
+                    filter(date >= pre_lockdown_start_date(cou)) %>%
                     filter(date < lockdown_end_date(cou)) %>%
-                    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400))
+                    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400),
+                           rolling_gcmr_retail = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA),
+                           rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA))
   return(lockdown_data)
 }
-
 lockdown_data <- data_frame()
-
 for(cou in national_lockdowns$country){
   a <- get_lockdown_data(cou)
   lockdown_data <- rbind(a, lockdown_data)
 }
 
+#get_lockdown_data("France")
 ```
 
 
@@ -72,76 +69,88 @@ firstdiff <- function(x) {
   return(result) }
 lockdown_data <- lockdown_data %>%
   mutate(daily_confirmed = firstdiff(confirmed))
-
 head(lockdown_data,100)
 ```
 
 ```{r model_data,}
-average_temperature <- import("average_temperature_edit.xlsx")
-modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, gcmr_retail_recreation, 
-                                      gcmr_grocery_pharmacy, days_in_lockdown, income) %>%  distinct()
-
+average_temperature <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
+modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
+                                      rolling_gcmr_grocery, days_in_lockdown, income) %>%  distinct()
 modelData <- left_join(modelData, average_temperature, by= "country")
 
 modelData$gdp_capita <- scale(modelData$gdp_capita)
 #modelData$average_temperature <- scale(modelData$average_temperature)
 modelData <- modelData %>% na.omit() 
 modelData <- modelData %>% mutate(days_squared = days_in_lockdown^2)
-
-
-population_20_39 <- import("population_aged_20_39.xlsx")
+population_20_39 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_20_39.xlsx")
 population_20_39 <- select(population_20_39, country, `2019`)
-population_40_59 <- import("population_aged_40_59.xlsx")
+population_40_59 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_40_59.xlsx")
 population_40_59 <- select(population_40_59, country, `2019`)
 population_20_59 <- left_join(population_20_39, population_40_59, by= "country")
 population_20_59 <- population_20_59 %>% transmute(country, pop_20_59= `2019.x` + `2019.y` )
 modelData <- left_join(modelData, population_20_59, by= "country")
-
-head(modelData,20)
+head(modelData,500)
 ```
 
 ```{r justification_for_first_model,}
-
 plot_country_lockdown_gcmr_retail <- function(cou){
   a <- modelData %>% filter(country == cou)
-  ggplot(a, aes(x= date, y= gcmr_retail_recreation)) + geom_line()
+  ggplot(a, aes(x= date, y= rolling_gcmr_retail)) + geom_line()
 }
-
 #plot_country_lockdown_gcmr_retail("Germany")
-
-
-ggplot(modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
-
-ggplot(modelData %>% filter(continent== "North America"), aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= income)) + geom_line() + facet_grid(~continent)
-
-ggplot(modelData %>% filter(continent== "North America"), aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= pop_20_59)) + geom_line()
-
-
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= average_temperature)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= income)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= pop_20_59)) + geom_line()
 ```
 
 
 ```{r first_model,}
-
-model1 <- lm(data= modelData, gcmr_retail_recreation ~ days_in_lockdown)
+model1 <- lm(data= modelData, rolling_gcmr_retail ~ days_in_lockdown)
 summary(model1)
-
 ```
 
 ```{r grouping_by_lockdown_length, warning=FALSE}
-# ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
-#   geom_histogram(breaks= seq(0,160,25)) 
-
-average_lockdown_length <- national_lockdowns %>% filter(national_lockdown_length <= 77 & national_lockdown_length > 48)
-
-
-average_lockdown_modelData <- modelData %>% filter(country %in% average_lockdown_length$country)
-
-ggplot(average_lockdown_modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
-
-model2 <- lm(data= average_lockdown_modelData, gcmr_retail_recreation ~ days_in_lockdown)
-summary(model2)
+ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
+geom_histogram(breaks= seq(0,160,25)) 
+#average_lockdown_length <- national_lockdowns %>% filter(national_lockdown_length <= 77 & national_lockdown_length > 48)
+#average_lockdown_modelData <- modelData %>% filter(country %in% average_lockdown_length$country)
+#next bit just adds a new variable lockdown category to national_lockdowns based on proposed lengths
+lockdownCat <- c()
+national_lockdowns <- filter(national_lockdowns, country %in% modelData$country)
+for(i in seq(1:40)){
+  if(national_lockdowns[i, ]$national_lockdown_length < 48){
+    lockdownCat <- c(lockdownCat, "Short")
+  }
+  else if(national_lockdowns[i, ]$national_lockdown_length > 78){
+    lockdownCat <- c(lockdownCat, "Long")
+  }
+  else{
+    lockdownCat <- c(lockdownCat, "Medium")
+  }
+}
+national_lockdowns <- national_lockdowns %>%mutate(lockdownCategory = lockdownCat)
+#adds national_lockdowns data to modelData
+modelData <- left_join(modelData, national_lockdowns, by = "country")
+#gets rid of the Place column, it was causing probblems with stepwise regression and is basically useless here
+modelData$Place <- NULL
+#ggplot(average_lockdown_modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
+#model2 <- lm(data= average_lockdown_modelData, gcmr_retail_recreation ~ days_in_lockdown)
+#summary(model2)
+#A minimal and maximal model we want to consider, haven't yet considered interactions between variables
+minModel <- glm(data = modelData, rolling_gcmr_retail ~ 1)
+maxModel <- glm(data = modelData, rolling_gcmr_retail ~ gdp_capita + days_in_lockdown + 
+                                                            average_temperature + 
+                                                            national_lockdown_length + factor(lockdownCategory))
+#stepwise regression backwards, forwards and both directions
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+#Forward, backward and both directions stepwise regression all choose the same model which is encouraging
+#Exhaustive search for best model
+regsubsetsOut <- regsubsets(rolling_gcmr_retail ~ gdp_capita + days_in_lockdown + average_temperature + 
+                               national_lockdown_length + factor(lockdownCategory), data = modelData)
+plot(regsubsetsOut, scale = "Cp")
 ```
-
-
-
-
