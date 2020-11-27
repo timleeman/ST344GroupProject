@@ -1,6 +1,6 @@
 ---
 title: "Technical Appendix"
-author: 'ST344 Team 5'
+author: 'ST344 Team 5: Albert Nyarko-Agyei, Charles Ayson-Parrish, Mai-An Dang, Tim Leeman, Zhen Heng Low'
 output: pdf_document
 ---
 
@@ -10,10 +10,482 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-install.packages("devtools")
+install.packages("devtools", repos = "http://cran.us.r-project.org")
 library(devtools)
-library(zoo)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+
 ```
+```{r}
+library(readr)
+install.packages("devtools", repos = "http://cran.us.r-project.org")
+library(devtools)
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/getdata.R")
+```
+
+#Setup and Data
+
+## Explaining setup scripts
+
+The `setup.R` script installs packages as follows:
+```{r, eval = FALSE}
+install.packages("dplyr", "remotes", "lubridate", "readxl", "rio", "ggpubr", lib = Sys.getenv("R_LIBS_USER"), repos = "http://cran.us.r-project.org") 
+install.packages("tidyverse")
+remotes::install_github("nset-ornl/wbstats")
+remotes::install_github("joachim-gassen/tidycovid19")
+library(tidyverse)
+library(dplyr)
+library(remotes)
+library(lubridate)
+library(readxl)
+library(rio)
+library(tidycovid19)
+library(ggpubr)
+library(zoo)
+```
+
+The `getdata.R` script downloads the data we are using from our shared github repository, as well as produces a list of countries which we have chosen to analyse:
+```{r, eval = FALSE}
+library(readr)
+install.packages("devtools", repos = "http://cran.us.r-project.org")
+library(devtools)
+#Reads the tidied version of the AuraVision dataset for lockdown dates
+auravisionData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/AuraVisionCleaned.csv")
+#Imports a tibble which lists which continent of all of the countries
+countries <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/Continents.csv")
+#Imports a snapshot of the merged tidycovid19 data set created on 19/11/2020
+covidData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/TidyCovid19DataSet.csv", guess_max = 10000)
+
+#Next section adds continent to the covidData dataset so we can filter out countries in continents we are not interested in
+countries <- filter(countries, country %in% covidData$country)
+covidData <- left_join(covidData, countries, by = "country")
+covidData <- mutate(covidData, country = factor(country), continent = factor(continent))
+covidData$country <- as.factor(covidData$country)
+#Getting just the relevant continents
+covidData <- filter(covidData, continent == "Europe" | continent == "North America" | continent == "South America" | country == "Turkey")
+#These for loops get rid of countries which have more than a third of their Google Mobility Trends data missing
+co <- ""
+#Remove countries with excessive amounts of data missing in gcmr_retail_recreation column
+for (co in levels(covidData$country)){
+  #100 can be changed to another threshold
+  if(sum(is.na(filter(covidData, country == co)$gcmr_retail_recreation)) >= 100){
+    covidData <- filter(covidData, country != co)
+  }
+}
+
+#Remove countries with excessive amounts of data missing in gcmr_grocery_pharmacy column
+for (co in levels(covidData$country)){
+  #100 can be changed to another threshold
+  if(sum(is.na(filter(covidData, country == co)$gcmr_grocery_pharmacy)) >= 100){
+    covidData <- filter(covidData, country != co)
+  }
+}
+#Getting rid of countries with populations less than 1,000,000
+covidData <- filter(covidData, population > 1000000)
+#Now, we get the remaining countries and then get the tidycovid19 data set again, so we have the full data but a list of countries we can filter it on also.
+covidData <- droplevels(covidData)
+chosenCountries <- levels(covidData$country)
+covidData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/TidyCovid19DataSet.csv", guess_max = 10000)
+countries <- filter(countries, country %in% covidData$country)
+covidData <- left_join(covidData, countries, by = "country")
+covidData <- mutate(covidData, country = factor(country), continent = factor(continent))
+```
+
+## Cleaning the Auravision Dataset
+
+We rely on a data set from AuraVision which includes start and end dates of various types of lockdowns across countries for much of our analysis. The data set was originally messy and what follows is the procedure for tidying it.
+
+First we get the original version of the AuraVision Dataset
+```{r getolddata, eval = FALSE}
+auravisionData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/LockdownDates/AuravisionLockdownDates.csv")
+```
+
+Then we filter on our chosen countries, as defined by the setup script.
+```{r filteringChosenCountries, eval = FALSE}
+auravisionData <- auravisionData %>% filter(Country %in% chosenCountries)
+```
+
+### Cleaning our dataset
+
+We are going to rename our columns using CamelBack font type, with the first character capital. We are doing this to remove all spaces within variable names.
+```{r renameColumns, eval = FALSE}
+auravisionData <- rename(auravisionData, StartDate = 'Start date', EndDate = 'End date')
+```
+
+We are not going to be using non-national (e.g. city-wide or regional) lockdowns for our investigation much. Therefore, we shall focus our efforts on cleaning the rows of our dataset that pertain to national lockdowns.
+
+Here, we check for countries with National lockdowns that have a missing start or end date. 
+```{r missingEndDate, eval = FALSE}
+auravisionData %>% filter(Level=='National' & (is.na(StartDate) | is.na(EndDate)))
+```
+After doing some (brief) research online, it seems that Panama is still in lockdown. Therefore, we can accept this missing end date; it is the result of an unknown end date, and not a missing data value.
+
+```{r findMultipleRows, eval = FALSE}
+auravisionData %>% 
+  filter(Level=='National') %>%
+  group_by(Country) %>%
+  filter(n()>1) %>%
+  arrange(Country, StartDate)
+```
+### Honduras
+The Honduras had a slightly staggered lockdown. Four municipalities implemented a lockdown and then within less than a week the rest of the country also went into lockdown. We shall be taking using the row in our dataset that refers to the country as a whole (and not to Place=="Rest of area")
+
+### Mexico
+After doing some (brief) research online, it seems that Mexico City remained in lockdown after the end of the national lockdown. The date at which the majority of the country's lockdown ended was 2020-06-01. Therefore we choose this as our end date.
+
+### Turkey
+The source for Turkey's 'second' national lockdown (i.e. Place=="Turkey(second implementation)") is no longer available. As it only spans four days, this may not have been a significant impact on the variables we are observing, therefore we shall ignore this row in our dataset.
+Turkey's 'first' national lockdown (i.e. Place=="Turkey(first implementation)") also only spans two days. Therefore, for the same reasons, we dismiss this row and only observe the row where ther variable Place is missing.
+
+```{r cleanMultipleRows, eval = FALSE}
+# These are the rows for national lockdowns that we want, for our three countries with multiple national lockdowns in the AuraVision dataset.
+auravisionData %>%
+  filter((Country=='Honduras' & is.na(Place)) |
+           (Country=='Mexico' & !is.na(Place)) |
+           (Country=='Turkey' & is.na(Place)))
+
+auravisionData <- subset(auravisionData,
+       (!Country %in% c("Honduras", "Mexico", "Turkey")) | # Take any rows if not in our three countries.
+         Level != 'National' | # Take any rows if not related to a national lockdown.
+         (Country=='Honduras' & is.na(Place)) |
+         (Country=='Mexico' & !is.na(Place)) |
+         (Country=='Turkey' & is.na(Place))) %>% arrange(Country)
+
+```
+## Exporting .csv file
+
+Finally, we export this as a .csv so that it can be easily used by the whole team.
+```{r, eval = FALSE}
+write_csv(auravisionData, "AuraVisionCleaned.csv", na="")
+```
+
+This `.csv` of the tidied dataset was then uploaded to our github repository [here](https://github.com/timleeman/ST344GroupProject/blob/main/Data/AuraVisionCleaned.csv)
+
+
+
+
+#Analysis
+
+
+## Investigating effect of Lockdowns
+
+
+```{r setting up functions}
+library(dplyr)
+firstdiff <- function(x) {                 
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result)
+}
+```
+
+
+```{r pivot table on the counts of lockdown, , warning = FALSE, message = FALSE}
+auravisionData %>% 
+  group_by(Level)%>%
+  summarise(count = n())
+```
+
+```{r setting up dataframe, , warning = FALSE, message = FALSE}
+covidData1<- covidData %>% filter(country %in% chosenCountries)
+
+covidData1<- covidData1%>% 
+  mutate(national_lock = ifelse(country %in% filter(auravisionData, Level == 'National')$Country, 1, 0))%>% 
+  mutate(city_lock = ifelse(country %in% filter(auravisionData, Level == 'City')$Country, 1, 0))%>%
+  mutate(region_lock = ifelse(country %in% filter(auravisionData, Level %in% c('Prefecture','Province','State','Region','Regional'))$Country, 1, 0))%>%
+  mutate(confirmed_per_capita = confirmed/population) %>%
+  mutate(daily_confirmed = firstdiff(confirmed)) %>%
+  mutate(daily_deaths = firstdiff(deaths)) %>%
+  mutate(deaths_per_capita = deaths/population)%>% 
+  mutate(income = factor(income, levels = c("High income","Upper middle income", "Lower middle income", "Low income")))
+
+```
+
+```{r effects of national lockdown on retail and recreation, , warning = FALSE, message = FALSE}
+plot_1<- filter(covidData1, national_lock %in% 1) %>%
+  ggplot(aes(x = date, y = gcmr_retail_recreation)) +
+  geom_line(aes(y = rollmean(gcmr_retail_recreation, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
+  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
+  geom_line(aes(y = rollmean(gcmr_retail_recreation, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
+  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
+  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
+  labs(title = 'Effects of a National Lockdown on Retail and Recreation', x= "Date", y = 'Activity in Retail and Recreation Centres') + 
+  scale_x_date(breaks = 'months', date_labels = '%b')
+
+```
+
+```{r effects of national lockdown on grocery and pharmacy, , warning = FALSE, message = FALSE}
+plot_2<- filter(covidData1, national_lock %in% 1) %>%
+  ggplot(aes(x = date, y = gcmr_grocery_pharmacy)) +
+  geom_line(aes(y = rollmean(gcmr_grocery_pharmacy, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
+  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
+  geom_line(aes(y = rollmean(gcmr_grocery_pharmacy, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
+  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
+  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
+  labs(title = 'Effects of a National Lockdown on Groceries and Pharmacies', x= "Date", y = 'Activity in Groceries and Pharmacies')+ 
+  scale_x_date(breaks = 'months', date_labels = '%b')
+
+```
+
+```{r effects of national lockdown on activities in parks, , warning = FALSE, message = FALSE}
+plot_3<- filter(covidData1, national_lock %in% 1) %>%
+  ggplot(aes(x = date, y = gcmr_parks)) +
+  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
+  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
+  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
+  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
+  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
+  labs(title = 'Effects of a National Lockdown on Parks', x= "Date", y = 'Activity in Parks')+ 
+  scale_x_date(breaks = 'months', date_labels = '%b')
+
+```
+
+```{r effects of national lockdown on transits and stations, , warning = FALSE, message = FALSE}
+plot_4<- filter(covidData1, national_lock %in% 1) %>%
+  ggplot(aes(x = date, y = gcmr_transit_stations)) +
+  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
+  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
+  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
+  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
+  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
+  labs(title = 'Effects of a National Lockdown on Transit Stations', x= "Date", y = 'Activity in Transit Stations')+ 
+  scale_x_date(breaks = 'months', date_labels = '%b')
+
+```
+
+```{r effects of national lockdown on workplaces, , warning = FALSE, message = FALSE}
+plot_5<- filter(covidData1, national_lock %in% 1) %>%
+  ggplot(aes(x = date, y = gcmr_workplaces)) +
+  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
+  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
+  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
+  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
+  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
+  labs(title = 'Effects of a National Lockdown on Workplaces', x= "Date", y = 'Activity in Workplaces')+ 
+  scale_x_date(breaks = 'months', date_labels = '%b')
+
+```
+
+```{r arranging the plots, fig.height = 10, fig.width= 15, warning = FALSE, message = FALSE}
+plot_final<- ggarrange(plot_1, plot_2, plot_4, plot_5,ncol = 2, nrow = 2)
+
+plot_final
+```
+From the plots above, it seems that the biggest impact to level of activities across all 4 metrics is from mid february to mid april
+
+```{r filterting by dates}
+covidData2<- covidData1 %>% filter((date > as.Date("2020-02-16")) & (date < as.Date("2020-04-15")))
+
+covidData3<- covidData1 %>% filter((date > as.Date("2020-04-16")))
+```
+
+```{r}
+lm(gcmr_retail_recreation ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
+```
+
+```{r}
+lm(gcmr_workplaces ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
+```
+
+```{r}
+lm(gcmr_grocery_pharmacy ~0 + national_lock + confirmed_per_capita, data = covidData2) %>% summary()
+```
+
+```{r}
+country_lock<- covidData1 %>% filter(national_lock == 1)
+country_no_lock<- covidData1 %>% filter(national_lock == 0)
+```
+
+```{r}
+country_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+ geom_point(aes(y = rollmean(gcmr_retail_recreation, 8,na.pad=TRUE)),size = 0.3)
+                          
+country_no_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
+  geom_point(aes(y = rollmean(gcmr_retail_recreation, 8, na.pad = TRUE)), size = 0.3)
+```
+
+```{r}
+covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+geom_point(aes(y = rollmean(gcmr_retail_recreation, 7, na.pad = TRUE)), size = 0.3)
+
+covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
+  geom_smooth(aes(group = income))+scale_x_date(breaks = 'months', date_labels = '%b')
+
+lm(gcmr_retail_recreation ~ 0 + income + national_lock, data = filter(covidData3, date>as.Date("2020-08-15"))) %>% summary()
+```
+
+
+```{r glm for gcmr_reatail_recreation}
+minModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ 1)
+maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+```
+
+```{r glm for gcmr_grocery_pharmacy}
+minModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~ 1)
+maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+```
+
+
+
+## Investigating the effect of length of lockdown
+
 The data for each country has been divided into their pre, intra and post lockdown dates. This used the functions `pre_lockdown_start date`, `lockdown_end_date` and `get_lockdown_data` and then each individual country's data was binded together. This was done using the Auravision data and then a rolling mean was calculated 
 using the 3days before and after a specific day. This method means that although we were looking at data from a week before, the mean could only be calculated from four days before the start of lockdown and stopped three days before the end.
+```{r, include = FALSE}
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/getdata.R")
+```
+
+```{r libraries, include=FALSE}
+covidData$date = as.Date(parse_date_time(covidData$date,orders=c("y","ym","ymd")))
+TidyData <- covidData %>% group_by(country) 
+TidyData <- mutate(TidyData, country = factor(country), continent = factor(continent))
+```
+
+```{r lockdown_length calculator,}
+national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
+national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`StartDate`, `EndDate`)))
+colnames(national_lockdowns)[1] = "country"
+national_lockdowns <- filter(national_lockdowns, country %in% chosenCountries)
+head(national_lockdowns %>% select(country, national_lockdown_length) %>% arrange(national_lockdown_length),60)
+```
+
+```{r functions_to_get_lockdown_data_and_bind,}
+selectData <- filter(covidData, country %in% chosenCountries)
+#Function to select country
+pre_lockdown_start_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`StartDate`)
+  return(a$`StartDate`[1] - 7) 
+}
+lockdown_start_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`StartDate`)
+  return(a$`StartDate`[1]) 
+}
+lockdown_end_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`EndDate`)
+  return(a$`EndDate`[1]) 
+}
+get_lockdown_data <- function(cou){
+  lockdown_data <- selectData %>% filter(country == cou) %>% 
+                    filter(date >= pre_lockdown_start_date(cou)) %>%
+                    filter(date < lockdown_end_date(cou)) %>%
+                    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400),
+                           rolling_gcmr_retail = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA),
+                           rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA))
+  return(lockdown_data)
+}
+lockdown_data <- data_frame()
+for(cou in national_lockdowns$country){
+  a <- get_lockdown_data(cou)
+  lockdown_data <- rbind(a, lockdown_data)
+}
+
+#get_lockdown_data("France")
+```
+
+
+```{r anaylsing_data,}
+firstdiff <- function(x) {
+  shifted <- c(0,x[1:(length(x)-1)])
+  result = x-shifted
+  which_negative = which(result<0)
+  result[which_negative] = NA
+  return(result) }
+lockdown_data <- lockdown_data %>%
+  mutate(daily_confirmed = firstdiff(confirmed))
+head(lockdown_data,100)
+```
+
+```{r model_data,}
+average_temperature <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
+modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
+                                      rolling_gcmr_grocery, days_in_lockdown, income) %>%  distinct()
+modelData <- left_join(modelData, average_temperature, by= "country")
+
+modelData$gdp_capita <- scale(modelData$gdp_capita)
+#modelData$average_temperature <- scale(modelData$average_temperature)
+modelData <- modelData %>% na.omit() 
+modelData <- modelData %>% mutate(days_squared = days_in_lockdown^2)
+population_20_39 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_20_39.xlsx")
+population_20_39 <- select(population_20_39, country, `2019`)
+population_40_59 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_40_59.xlsx")
+population_40_59 <- select(population_40_59, country, `2019`)
+population_20_59 <- left_join(population_20_39, population_40_59, by= "country")
+population_20_59 <- population_20_59 %>% transmute(country, pop_20_59= `2019.x` + `2019.y` )
+modelData <- left_join(modelData, population_20_59, by= "country")
+head(modelData,500)
+```
+
+```{r justification_for_first_model,}
+plot_country_lockdown_gcmr_retail <- function(cou){
+  a <- modelData %>% filter(country == cou)
+  ggplot(a, aes(x= date, y= rolling_gcmr_retail)) + geom_line()
+}
+#plot_country_lockdown_gcmr_retail("Germany")
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= average_temperature)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= income)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= pop_20_59)) + geom_line()
+```
+
+
+```{r first_model,}
+model1 <- lm(data= modelData, rolling_gcmr_retail ~ days_in_lockdown)
+summary(model1)
+```
+
+```{r grouping_by_lockdown_length, warning=FALSE}
+ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
+geom_histogram(breaks= seq(0,160,25)) 
+#average_lockdown_length <- national_lockdowns %>% filter(national_lockdown_length <= 77 & national_lockdown_length > 48)
+#average_lockdown_modelData <- modelData %>% filter(country %in% average_lockdown_length$country)
+#next bit just adds a new variable lockdown category to national_lockdowns based on proposed lengths
+lockdownCat <- c()
+national_lockdowns <- filter(national_lockdowns, country %in% modelData$country)
+for(i in seq(1:40)){
+  if(national_lockdowns[i, ]$national_lockdown_length < 48){
+    lockdownCat <- c(lockdownCat, "Short")
+  }
+  else if(national_lockdowns[i, ]$national_lockdown_length > 78){
+    lockdownCat <- c(lockdownCat, "Long")
+  }
+  else{
+    lockdownCat <- c(lockdownCat, "Medium")
+  }
+}
+national_lockdowns <- national_lockdowns %>%mutate(lockdownCategory = lockdownCat)
+#adds national_lockdowns data to modelData
+modelData <- left_join(modelData, national_lockdowns, by = "country")
+#gets rid of the Place column, it was causing probblems with stepwise regression and is basically useless here
+modelData$Place <- NULL
+#ggplot(average_lockdown_modelData, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country, col= average_temperature)) + geom_line()
+#model2 <- lm(data= average_lockdown_modelData, gcmr_retail_recreation ~ days_in_lockdown)
+#summary(model2)
+#A minimal and maximal model we want to consider, haven't yet considered interactions between variables
+minModel <- glm(data = modelData, rolling_gcmr_retail ~ 1)
+maxModel <- glm(data = modelData, rolling_gcmr_retail ~ gdp_capita + days_in_lockdown + 
+                                                            average_temperature + 
+                                                            national_lockdown_length + factor(lockdownCategory))
+#stepwise regression backwards, forwards and both directions
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+#Forward, backward and both directions stepwise regression all choose the same model which is encouraging
+
+```
