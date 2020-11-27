@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 install.packages("devtools")
 library(devtools)
+library(zoo)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
 ```
 The data for each country has been divided into their pre, intra and post lockdown dates. This used the functions `pre_lockdown_start date`, `lockdown_end_date` and `get_lockdown_data` and then each individual country's data was binded together. This was done using the Auravision data and then a rolling mean was calculated 
