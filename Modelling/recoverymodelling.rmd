@@ -1,0 +1,134 @@
+---
+title: "Recovery"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+install.packages("dplyr")
+install.packages("tidyverse")
+install.packages("remotes")
+install.packages( "lubridate")
+install.packages("readxl")
+install.packages("rio")
+install.packages("devtools")
+
+remotes::install_github("nset-ornl/wbstats")
+remotes::install_github("joachim-gassen/tidycovid19")
+library(tidyverse)
+library(dplyr)
+library(remotes)
+library(lubridate)
+library(readxl)
+library(rio)
+library(tidycovid19)
+library(ggplot2)
+library(devtools)
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+```
+
+
+
+```{r cars}
+covidData$date = as.Date(parse_date_time(covidData$date,orders=c("y","ym","ymd")))
+TidyData <- covidData %>% group_by(country) 
+TidyData <- mutate(TidyData, country = factor(country), continent = factor(continent))
+
+national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
+national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`Start date`, `End date`)))
+colnames(national_lockdowns)[1] = "country"
+head(national_lockdowns,60)
+```
+
+
+
+```{r pressure, echo=FALSE}
+
+#rearranging so day 0 is the end of each country's respective lockdowns
+
+selectData <- filter(covidData, country %in% chosenCountries)
+#Function to select country
+lockdown_start_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`Start date`)
+  return(a$`Start date`[1]) 
+}
+lockdown_end_date <- function(cou){
+  a <- national_lockdowns %>% filter(country == cou) %>% select(`End date`)
+  return(a$`End date`[1]) 
+}
+
+get_lockdown_data <- function(cou){
+  lockdown_data <- selectData %>% filter(country == cou) %>% 
+    filter(date >= lockdown_end_date(cou))  %>%
+    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_end_date(cou), date)/86400))
+  return(lockdown_data)
+}
+
+lockdown_data <- data_frame()
+for(cou in national_lockdowns$country){
+  a <- get_lockdown_data(cou)
+  lockdown_data <- rbind(a, lockdown_data)
+}
+
+lockdown_data <- left_join(lockdown_data, national_lockdowns, by = "country")
+```
+
+```{r }
+### plotting recovery with gradient based on total length
+ggplot(lockdown_data, aes(x=days_in_lockdown, y= gcmr_retail_recreation, group= country)) +
+  geom_line(aes(colour = lockdown_data$national_lockdown_length ))+scale_colour_gradient(low = "yellow", high = "blue")+
+  labs( x = "Days out of lockdown", y = "GCMR retail/recreation")
+
+model1 <- lm(data= lockdown_data, gcmr_retail_recreation ~ days_in_lockdown)
+summary(model1)
+
+```
+
+```{r }
+
+### modelling
+
+minModel <- glm(data = lockdown_data, gcmr_retail_recreation ~ 1)
+maxModel <- glm(data = lockdown_data, gcmr_retail_recreation ~ gdp_capita + days_in_lockdown  + 
+                  national_lockdown_length)
+#stepwise regression backwards, forwards and both directions
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+
+##Forward, backward and both directions stepwise regression all choose the same model which is encouraging
+#similar
+#Exhaustive search for best model
+
+install.packages("leaps")
+
+library(tidyverse)
+library(caret)
+library(leaps)
+
+regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_in_lockdown + 
+                              national_lockdown_length, data = modelData)
+plot(regsubsetsOut, scale = "Cp")
+
+```
+
+
+
+```{r }
+###now plotting with moving average of gcmr
+
+lockdown_data <- lockdown_data %>% mutate(rr_avg = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA))
+
+ggplot(lockdown_data, aes(x=days_in_lockdown, y= rr_avg, group= country)) +
+  geom_line(aes(colour = lockdown_data$national_lockdown_length ))+scale_colour_gradient(low = "yellow", high = "blue")+
+  labs( x = "Days out of lockdown", y = "GCMR retail/recreation")
+
+model2 <- lm(data= lockdown_data, rr_avg ~ national_lockdown_length)
+summary(model2)
+
+
+```
+
+
