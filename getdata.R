@@ -1,3 +1,4 @@
+library(rio)
 auravisionData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/AuraVisionCleaned.csv")
 countries <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/Continents.csv")
 covidData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/Data/TidyCovid19DataSet.csv", guess_max = 10000)
