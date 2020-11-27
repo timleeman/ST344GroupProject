@@ -163,4 +163,30 @@ lm(gcmr_retail_recreation ~ 0 + income + national_lock, data = filter(covidData3
 ```
 
 
+```{r glm for gcmr_reatail_recreation}
+minModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ 1)
+maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+```
+
+```{r glm for gcmr_grocery_pharmacy}
+minModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~ 1)
+maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+
+summary(autoBack)
+summary(autoForward)
+summary(autoBoth)
+```
+
 
