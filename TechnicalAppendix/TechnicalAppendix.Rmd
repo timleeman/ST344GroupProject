@@ -14,3 +14,5 @@ install.packages("devtools")
 library(devtools)
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
 ```
+The data for each country has been divided into their pre, intra and post lockdown dates. This used the functions `pre_lockdown_start date`, `lockdown_end_date` and `get_lockdown_data` and then each individual country's data was binded together. This was done using the Auravision data and then a rolling mean was calculated 
+using the 3days before and after a specific day. This method means that although we were looking at data from a week before, the mean could only be calculated from four days before the start of lockdown and stopped three days before the end.
