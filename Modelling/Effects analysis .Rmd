@@ -84,48 +84,8 @@ plot_final<- ggarrange(plot_1, plot_2,ncol = 2, nrow = 1)
 
 plot_final
 ```
-From the plots above, it seems that the biggest impact to level of activities across all 4 metrics is from mid february to mid april
-
-```{r filterting by dates}
-covidData2<- covidData1 %>% filter((date > as.Date("2020-02-16")) & (date < as.Date("2020-04-15")))
-
-covidData3<- covidData1 %>% filter((date > as.Date("2020-04-16")))
-```
-
-```{r}
-lm(gcmr_retail_recreation ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
-```
-
-```{r}
-lm(gcmr_workplaces ~0 + national_lock + confirmed_per_capita + daily_deaths, data = covidData2) %>% summary()
-```
-
-```{r}
-lm(gcmr_grocery_pharmacy ~0 + national_lock + confirmed_per_capita, data = covidData2) %>% summary()
-```
-
-```{r}
-country_lock<- covidData1 %>% filter(national_lock == 1)
-country_no_lock<- covidData1 %>% filter(national_lock == 0)
-```
-
-```{r}
-country_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+ geom_point(aes(y = rollmean(gcmr_retail_recreation, 8,na.pad=TRUE)),size = 0.3)
-                          
-country_no_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
-  geom_point(aes(y = rollmean(gcmr_retail_recreation, 8, na.pad = TRUE)), size = 0.3)
-```
-
-```{r}
-covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+geom_point(aes(y = rollmean(gcmr_retail_recreation, 7, na.pad = TRUE)), size = 0.3)
-
-covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
-  geom_smooth(aes(group = income))+scale_x_date(breaks = 'months', date_labels = '%b')
-
-lm(gcmr_retail_recreation ~ 0 + income + national_lock, data = filter(covidData3, date>as.Date("2020-08-15"))) %>% summary()
-```
-
-
+From the 2 plots above, we can see that with the presence of a national lockdown on our list of chosen countries, the level of activity in gcmr_retail_recreation and gcmr_grocery_pharmacy have decreased dramatically compared to countries without a lockdown. This suggests that a national lockdown does hamper economic activity and thus affects the businesses by decreasing the number of customers.
+                         
 ```{r glm for gcmr_reatail_recreation}
 minModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ 1)
 maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
