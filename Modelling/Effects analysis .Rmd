@@ -29,13 +29,6 @@ firstdiff <- function(x) {
 }
 ```
 
-
-```{r pivot table on the counts of lockdown, , warning = FALSE, message = FALSE}
-auravisionData %>% 
-  group_by(Level)%>%
-  summarise(count = n())
-```
-
 ```{r setting up dataframe, , warning = FALSE, message = FALSE}
 covidData1<- covidData %>% filter(country %in% chosenCountries)
 
@@ -94,10 +87,21 @@ autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minMod
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
 autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
 
-summary(autoBack)
-summary(autoForward)
-summary(autoBoth)
+#Final model
+model_1<- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ national_lock + daily_deaths + daily_confirmed)
+
+summary(model_1)
+
 ```
+
+From the step-wise regression, we concluded that the most suitable model to explain the changes in gcmr_retail_recreation is shown as:
+
+$gcmr\_retail\_recreation = \beta + \alpha_1(national\_lock) + \alpha_2(daily\_deaths) + \alpha_3(daily\_confirmed)  $
+
+with values given by 
+$\beta = -14 .71, \alpha_1 = -15.23 ,\alpha_2 = -0.05030 ,\alpha_3 = 0.0003.389$
+
+This is in line with our initial findings where the presence of a national lockdown decreasing customer actvity in retail and recreation.
 
 ```{r glm for gcmr_grocery_pharmacy}
 minModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~ 1)
@@ -107,9 +111,20 @@ autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minMod
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
 autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
 
-summary(autoBack)
-summary(autoForward)
-summary(autoBoth)
+#Final model
+model_2<- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy~national_lock + daily_deaths + deaths_per_capita + daily_confirmed)
+
+summary(model_2)
 ```
+
+From the step-wise regression, we concluded that the most suitable model to explain the changes in gcmr_grocery_pharmacy is shown as:
+
+$gcmr\_grocery\_pharmacy = \beta + \alpha_1(national\_lock) + \alpha_2(daily\_deaths) + \alpha_3(deaths\_per\_capita) + \alpha_4(daily_confirmed)$
+
+with values given by 
+$\beta = -1.521, \alpha_1 = -4.742 ,\alpha_2 = -0.03564 ,\alpha_3 = -9337, \alpha_4 = 3.157 $
+
+The findings here show that activity in groceries and pharmacies also respond negatively towards the presence of a national lockdown. However, deaths per capita seems to be the main driver towards the decrease of activity in groceries and pharmacies.
+
 
 
