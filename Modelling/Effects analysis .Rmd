@@ -19,6 +19,10 @@ source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/getdata.R")
 ```
 
+```{r getting OWID Data https://github.com/owid/covid-19-data/blob/master/public/data/README.md}
+OWIDdata<- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv')
+```
+
 ```{r setting up functions}
 firstdiff <- function(x) {                 
   shifted <- c(0,x[1:(length(x)-1)])
@@ -42,6 +46,18 @@ covidData1<- covidData1%>%
   mutate(deaths_per_capita = deaths/population)%>% 
   mutate(income = factor(income, levels = c("High income","Upper middle income", "Lower middle income", "Low income")))
 
+```
+
+```{r setting up OWIDdata}
+OWIDdata1<- OWIDdata %>% 
+  rename(country = location) %>%
+  filter(country %in% chosenCountries) %>%
+  select(date, country, reproduction_rate) 
+
+OWIDdata1 <- OWIDdata1 %>%
+  mutate(date = as.Date(parse_date_time(OWIDdata1$date, orders = 'ymd')))
+
+covidData1<- right_join(covidData1, OWIDdata1, by = c('country','date'))
 ```
 
 ```{r effects of national lockdown on retail and recreation, , warning = FALSE, message = FALSE}
@@ -126,5 +142,38 @@ $\beta = -1.521, \alpha_1 = -4.742 ,\alpha_2 = -0.03564 ,\alpha_3 = -9337, \alph
 
 The findings here show that activity in groceries and pharmacies also respond negatively towards the presence of a national lockdown. However, deaths per capita seems to be the main driver towards the decrease of activity in groceries and pharmacies.
 
+```{r plots of confirmed or death against date with colour as reproduction rate}
+covidData1 %>% ggplot(aes(x = date, y = daily_confirmed, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Daily confirmed')
+
+covidData1 %>% ggplot(aes(x = date, y = daily_deaths, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Daily Deaths')
+
+covidData1 %>% ggplot(aes(x = date, y = confirmed, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Confirmed')
+
+covidData1 %>% ggplot(aes(x = date, y = deaths, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Deaths')
+```
+
+```{r glm for confirmed}
+minModel <- glm(data = na.omit(covidData1), confirmed ~ 1)
+maxModel <- glm(data = na.omit(covidData1), confirmed ~national_lock + reproduction_rate)
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+
+#Final Model
+model_3<- glm(data = na.omit(covidData1), confirmed ~ national_lock + reproduction_rate)
+summary(model_3)
+```
 
 
