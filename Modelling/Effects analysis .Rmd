@@ -60,7 +60,8 @@ plot_1<- filter(covidData1, national_lock %in% 1) %>%
   geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
   scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
   labs(title = 'Effects of a National Lockdown on Retail and Recreation', x= "Date", y = 'Activity in Retail and Recreation Centres') + 
-  scale_x_date(breaks = 'months', date_labels = '%b')
+  scale_x_date(breaks = 'months', date_labels = '%b')+
+  theme(title = element_text(size = 20, hjust = 0.5, face = 'bold'), axis.title.x = element_text(size = 20), legend.text = element_text(size = 20))
 
 ```
 
@@ -73,51 +74,13 @@ plot_2<- filter(covidData1, national_lock %in% 1) %>%
   geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
   scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
   labs(title = 'Effects of a National Lockdown on Groceries and Pharmacies', x= "Date", y = 'Activity in Groceries and Pharmacies')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
-
-```{r effects of national lockdown on activities in parks, , warning = FALSE, message = FALSE}
-plot_3<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_parks)) +
-  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_parks, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Parks', x= "Date", y = 'Activity in Parks')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
-
-```{r effects of national lockdown on transits and stations, , warning = FALSE, message = FALSE}
-plot_4<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_transit_stations)) +
-  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_transit_stations, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Transit Stations', x= "Date", y = 'Activity in Transit Stations')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
-```
-
-```{r effects of national lockdown on workplaces, , warning = FALSE, message = FALSE}
-plot_5<- filter(covidData1, national_lock %in% 1) %>%
-  ggplot(aes(x = date, y = gcmr_workplaces)) +
-  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'red', alpha= 0.3)+
-  geom_smooth(aes(colour = 'Coutries with National Lockdowns'), data = filter(covidData1, national_lock %in% 1), se = FALSE)+
-  geom_line(aes(y = rollmean(gcmr_workplaces, 7, na.pad = TRUE)), colour = 'blue', alpha= 0.3, data = filter(covidData1, national_lock %in% 0))+
-  geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
-  scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
-  labs(title = 'Effects of a National Lockdown on Workplaces', x= "Date", y = 'Activity in Workplaces')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
+  scale_x_date(breaks = 'months', date_labels = '%b')+
+  theme(title = element_text(size = 20, hjust = 0.5, face = 'bold'), axis.title.x = element_text(size = 20), legend.text = element_text(size = 20))
 
 ```
 
 ```{r arranging the plots, fig.height = 10, fig.width= 15, warning = FALSE, message = FALSE}
-plot_final<- ggarrange(plot_1, plot_2, plot_4, plot_5,ncol = 2, nrow = 2)
+plot_final<- ggarrange(plot_1, plot_2,ncol = 2, nrow = 1)
 
 plot_final
 ```
