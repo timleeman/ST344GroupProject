@@ -24,7 +24,7 @@ firstdiff <- function(x) {
   shifted <- c(0,x[1:(length(x)-1)])
   result = x-shifted
   which_negative = which(result<0)
-  result[which_negative] = 0
+  result[which_negative] = NA
   return(result) }
 
 covidData <- covidData %>%
@@ -84,22 +84,56 @@ for(cou in national_lockdowns$country){
 # get_lockdown_data("Germany")
 ```
 
-```{r calculating_the_r,}
-plot_calculate_r <- function(cou, startday, endday){
-  startday <- lockdown_start_date(cou)
-  endday <- lockdown_end_date(cou)
-  key_data <- get_lockdown_data(cou) %>% dplyr::select(date, daily_confirmed, days_in_lockdown) %>%
-    filter(date > startday & date < endday)
-  daily_cases_model <- glm.nb(daily_confirmed ~ days_in_lockdown, data = key_data)
+```{r calculating_the_r, message=FALSE, warning=FALSE}
+
+#I calculated the R number for three periods in each country's epidemic 
+
+#The first uses the 28 days leading up to lockdown
+before_lockdown_r <- function(cou){
+  startday <- lockdown_start_date(cou) - 28
+  endday <- lockdown_start_date(cou)
+  key_data <- selectData %>% dplyr::select(country, date, daily_confirmed) %>%
+    filter(date >= startday & date < endday) %>% filter(country == cou) %>% na.omit()
+  daily_cases_model <- glm.nb(daily_confirmed ~ 1 + date, data = key_data)
   key_data$pred_daily_cases <- predict(daily_cases_model)
-  ggplot(key_data, aes(x= days_in_lockdown, y= log(daily_confirmed))) + geom_point() +
-  geom_line(aes(y = pred_daily_cases))
-  #return(coef(daily_cases_model)[2] %>% as.numeric())
+  R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
+  return(R)
 }
 
-plot_calculate_r("Jamaica")
+#The second R uses the 28 days from the day with the most cases in lockdown
+during_lockdown_r <- function(cou){
+  startday <- get_peak_daily_cases_day(cou)
+  endday <- startday + 28
+  key_data <- selectData %>% dplyr::select(country, date, daily_confirmed) %>%
+    filter(date >= startday & date < endday) %>% filter(country == cou) %>% na.omit()
+  daily_cases_model <- glm.nb(daily_confirmed ~ 1 + date, data = key_data)
+  key_data$pred_daily_cases <- predict(daily_cases_model)
+  R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
+  return(R)
+}
+
+#This uses the 7 days after lockdown
+post_lockdown_r <- function(cou){
+  startday <- lockdown_end_date(cou)
+  endday <- startday + 7
+  key_data <- selectData %>% dplyr::select(country, date, daily_confirmed) %>%
+    filter(date > startday & date <= endday) %>% filter(country == cou) %>% na.omit()
+  daily_cases_model <- glm.nb(daily_confirmed ~ 1 + date, data = key_data)
+  key_data$pred_daily_cases <- predict(daily_cases_model)
+  R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
+  return(R)
+}
 
 
+#Calculates the three R values 
+calculate_r <- function(x){
+  a <- before_lockdown_r(x) 
+  b <- during_lockdown_r(x)
+  c <- post_lockdown_r(x)
+  paste0(a, " ", b, " ", c)
+}
+
+calculate_r("Austria")
 ```
 
 
