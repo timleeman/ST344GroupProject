@@ -317,7 +317,7 @@ covidData$date = as.Date(parse_date_time(covidData$date,orders=c("y","ym","ymd")
 TidyData <- covidData %>% group_by(country) 
 TidyData <- mutate(TidyData, country = factor(country), continent = factor(continent))
 ```
-
+# Getting the length of each country's lockdown from Auravision
 ```{r lockdown_length calculator,}
 national_lockdowns <- auravisionData %>% filter(Level== "National") %>% select(-Level)
 national_lockdowns <- national_lockdowns %>% mutate(national_lockdown_length = as.numeric(-difftime(`StartDate`, `EndDate`)))
@@ -325,6 +325,11 @@ colnames(national_lockdowns)[1] = "country"
 national_lockdowns <- filter(national_lockdowns, country %in% chosenCountries)
 head(national_lockdowns %>% select(country, national_lockdown_length) %>% arrange(national_lockdown_length),60)
 ```
+
+# These series of function pull the relevant dates from Auravision and countries from covidData. 
+# In order to compare countries, we aligned each country's data to the start of lockdown by creating the variable `days_in_lockdown`.
+# We also agreed to use a rolling mean for gcmr to reduce the effect of daily variations. 
+# The mean is calculated by averaging the gcmr of the three days before and after a specific day.
 
 ```{r functions_to_get_lockdown_data_and_bind,}
 selectData <- filter(covidData, country %in% chosenCountries)
@@ -370,6 +375,8 @@ lockdown_data <- lockdown_data %>%
 head(lockdown_data,100)
 ```
 
+# This section adds data from Gapminder and Statista that we suscepted would be relevant to gcmr models
+
 ```{r model_data,}
 average_temperature <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
 modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
@@ -390,6 +397,8 @@ modelData <- left_join(modelData, population_20_59, by= "country")
 head(modelData,500)
 ```
 
+# View plots of gcmr against days in lockdown to assess the validating of a model. 
+
 ```{r justification_for_first_model,}
 plot_country_lockdown_gcmr_retail <- function(cou){
   a <- modelData %>% filter(country == cou)
@@ -401,11 +410,14 @@ ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country
 ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= pop_20_59)) + geom_line()
 ```
 
+# The basic first model
 
 ```{r first_model,}
 model1 <- lm(data= modelData, rolling_gcmr_retail ~ days_in_lockdown)
 summary(model1)
 ```
+
+# We started off by categorising countries into short, medium and long lockdown lengths but we realised that this could make the findings of the investigation highly subject to manipulations.
 
 ```{r grouping_by_lockdown_length, warning=FALSE}
 ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
