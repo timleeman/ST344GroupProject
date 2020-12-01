@@ -1,6 +1,6 @@
 ---
 title: "Technical Appendix"
-author: 'ST344 Team 5: Albert Nyarko-Agyei, Charles Ayson-Parrish, Mai-An Dang, Tim Leeman, Zhen Heng Low'
+author: 'ST344 Team 5'
 output: pdf_document
 ---
 
@@ -94,30 +94,32 @@ covidData <- mutate(covidData, country = factor(country), continent = factor(con
 
 We rely on a data set from AuraVision which includes start and end dates of various types of lockdowns across countries for much of our analysis. The data set was originally messy and what follows is the procedure for tidying it.
 
-First we get the original version of the AuraVision Dataset
+First we get the original version of the AuraVision Dataset.
 ```{r getolddata, eval = FALSE}
 auravisionData <- read_csv("https://raw.github.com/timleeman/ST344GroupProject/main/LockdownDates/AuravisionLockdownDates.csv")
 ```
 
-Then we filter on our chosen countries, as defined by the setup script.
+Then we filter on our chosen countries, as defined by the getdata.R setup script.
 ```{r filteringChosenCountries, eval = FALSE}
 auravisionData <- auravisionData %>% filter(Country %in% chosenCountries)
 ```
 
 ### Cleaning our dataset
 
-We are going to rename our columns using CamelBack font type, with the first character capital. We are doing this to remove all spaces within variable names.
+We rename our columns using CamelBack font type, with the first character capital. We did this to remove all spaces within variable names.
 ```{r renameColumns, eval = FALSE}
 auravisionData <- rename(auravisionData, StartDate = 'Start date', EndDate = 'End date')
 ```
 
-We are not going to be using non-national (e.g. city-wide or regional) lockdowns for our investigation much. Therefore, we shall focus our efforts on cleaning the rows of our dataset that pertain to national lockdowns.
+We do not make much use of non-national (e.g. city-wide or regional) lockdowns for our investigation. Therefore, we focussed our efforts on cleaning the rows of our dataset that pertain to national lockdowns.
 
 Here, we check for countries with National lockdowns that have a missing start or end date. 
 ```{r missingEndDate, eval = FALSE}
 auravisionData %>% filter(Level=='National' & (is.na(StartDate) | is.na(EndDate)))
 ```
 After doing some (brief) research online, it seems that Panama is still in lockdown. Therefore, we can accept this missing end date; it is the result of an unknown end date, and not a missing data value.
+
+Then, we check for countries with multiple National lockdowns reported in the dataset.
 
 ```{r findMultipleRows, eval = FALSE}
 auravisionData %>% 
@@ -134,7 +136,7 @@ After doing some (brief) research online, it seems that Mexico City remained in 
 
 ### Turkey
 The source for Turkey's 'second' national lockdown (i.e. Place=="Turkey(second implementation)") is no longer available. As it only spans four days, this may not have been a significant impact on the variables we are observing, therefore we shall ignore this row in our dataset.
-Turkey's 'first' national lockdown (i.e. Place=="Turkey(first implementation)") also only spans two days. Therefore, for the same reasons, we dismiss this row and only observe the row where ther variable Place is missing.
+Turkey's 'first' national lockdown (i.e. Place=="Turkey(first implementation)") also only spans two days. Therefore, for the same reasons, we dismiss this row and only observe the row where the variable 'Place' is missing.
 
 ```{r cleanMultipleRows, eval = FALSE}
 # These are the rows for national lockdowns that we want, for our three countries with multiple national lockdowns in the AuraVision dataset.
@@ -151,7 +153,8 @@ auravisionData <- subset(auravisionData,
          (Country=='Turkey' & is.na(Place))) %>% arrange(Country)
 
 ```
-## Exporting .csv file
+
+### Exporting .csv file
 
 Finally, we export this as a .csv so that it can be easily used by the whole team.
 ```{r, eval = FALSE}
@@ -666,6 +669,5 @@ regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_out_lockd
 plot(regsubsetsOut, scale = "Cp")
 
 ```
-
 
 
