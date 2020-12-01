@@ -179,11 +179,8 @@ firstdiff <- function(x) {
 }
 ```
 
-
-```{r pivot table on the counts of lockdown, , warning = FALSE, message = FALSE}
-auravisionData %>% 
-  group_by(Level)%>%
-  summarise(count = n())
+```{r getting OWID Data https://github.com/owid/covid-19-data/blob/master/public/data/README.md}
+OWIDdata<- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv')
 ```
 
 ```{r setting up dataframe, , warning = FALSE, message = FALSE}
@@ -201,6 +198,18 @@ covidData1<- covidData1%>%
 
 ```
 
+```{r setting up OWIDdata}
+OWIDdata1<- OWIDdata %>% 
+  rename(country = location) %>%
+  filter(country %in% chosenCountries) %>%
+  select(date, country, reproduction_rate) 
+
+OWIDdata1 <- OWIDdata1 %>%
+  mutate(date = as.Date(parse_date_time(OWIDdata1$date, orders = 'ymd')))
+
+covidData1<- right_join(covidData1, OWIDdata1, by = c('country','date'))
+```
+
 ```{r effects of national lockdown on retail and recreation, , warning = FALSE, message = FALSE}
 plot_1<- filter(covidData1, national_lock %in% 1) %>%
   ggplot(aes(x = date, y = gcmr_retail_recreation)) +
@@ -210,8 +219,8 @@ plot_1<- filter(covidData1, national_lock %in% 1) %>%
   geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
   scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
   labs(title = 'Effects of a National Lockdown on Retail and Recreation', x= "Date", y = 'Activity in Retail and Recreation Centres') + 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
+  scale_x_date(breaks = 'months', date_labels = '%b')+
+  theme(title = element_text(size = 20, hjust = 0.5, face = 'bold'), axis.title.x = element_text(size = 20), legend.text = element_text(size = 20))
 ```
 
 ```{r effects of national lockdown on grocery and pharmacy, , warning = FALSE, message = FALSE}
@@ -223,23 +232,16 @@ plot_2<- filter(covidData1, national_lock %in% 1) %>%
   geom_smooth(aes(colour = 'Countries without National Lockdowns'), data = filter(covidData1, national_lock %in% 0), se = FALSE)+
   scale_colour_manual(name = 'Legend', values = c('Coutries with National Lockdowns'='red','Countries without National Lockdowns' = 'blue' ))+
   labs(title = 'Effects of a National Lockdown on Groceries and Pharmacies', x= "Date", y = 'Activity in Groceries and Pharmacies')+ 
-  scale_x_date(breaks = 'months', date_labels = '%b')
-
+  scale_x_date(breaks = 'months', date_labels = '%b')+
+  theme(title = element_text(size = 20, hjust = 0.5, face = 'bold'), axis.title.x = element_text(size = 20), legend.text = element_text(size = 20))
 ```
 
 
 ```{r arranging the plots, fig.height = 10, fig.width= 15, warning = FALSE, message = FALSE}
-plot_final<- ggarrange(plot_1, plot_2, ncol = 1, nrow = 2)
-
+plot_final<- ggarrange(plot_1, plot_2,ncol = 2, nrow = 1)
 plot_final
 ```
-From the plots above, it seems that the biggest impact to level of activities across all 4 metrics is from mid february to mid april
-
-```{r filterting by dates}
-covidData2<- covidData1 %>% filter((date > as.Date("2020-02-16")) & (date < as.Date("2020-04-15")))
-
-covidData3<- covidData1 %>% filter((date > as.Date("2020-04-16")))
-```
+From the 2 plots above, we can see that with the presence of a national lockdown on our list of chosen countries, the level of activity in gcmr_retail_recreation and gcmr_grocery_pharmacy have decreased dramatically compared to countries without a lockdown. This suggests that a national lockdown does hamper economic activity and thus affects the businesses by decreasing the number of customers.
 
 ```{r}
 firstStageModelRetail <- lm(gcmr_retail_recreation ~ national_lock + confirmed_per_capita + daily_deaths, data = covidData2)
@@ -247,62 +249,61 @@ summary(firstStageModelRetail)
 anova(firstStageModelRetail)
 ```
 
-
-```{r}
-firstStageModelGrocery <- lm(gcmr_grocery_pharmacy ~ national_lock + confirmed_per_capita, data = covidData2)
-summary(firstStageModelGrocery)
-anova(firstStageModelGrocery)
-```
-
-```{r}
-country_lock<- covidData1 %>% filter(national_lock == 1)
-country_no_lock<- covidData1 %>% filter(national_lock == 0)
-```
-
-```{r}
-country_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+ geom_point(aes(y = rollmean(gcmr_retail_recreation, 8,na.pad=TRUE)),size = 0.3)
-                          
-country_no_lock %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
-  geom_point(aes(y = rollmean(gcmr_retail_recreation, 8, na.pad = TRUE)), size = 0.3)
-```
-
-```{r}
-covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+geom_point(aes(y = rollmean(gcmr_retail_recreation, 7, na.pad = TRUE)), size = 0.3)
-
-covidData3 %>% ggplot(aes(x = date, y = gcmr_retail_recreation, colour = income))+
-  geom_smooth(aes(group = income))+scale_x_date(breaks = 'months', date_labels = '%b')
-
-lm(gcmr_retail_recreation ~ income + national_lock, data = filter(covidData3, date>as.Date("2020-08-15"))) %>% summary()
-```
-
-
 ```{r glm for gcmr_reatail_recreation}
 minModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ 1)
-maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed + gdp_capita + factor(income))
-
+maxModel <- glm(data = na.omit(covidData1), gcmr_retail_recreation ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
 autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
 autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
-
-summary(autoBack)
-summary(autoForward)
-summary(autoBoth)
+#Final model
+model_1<- glm(data = na.omit(covidData1), gcmr_retail_recreation ~ national_lock + daily_deaths + daily_confirmed)
+summary(model_1)
 ```
 
 ```{r glm for gcmr_grocery_pharmacy}
 minModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~ 1)
-maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed + gdp_capita)
+maxModel <- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy ~national_lock + confirmed_per_capita + daily_deaths + deaths_per_capita + daily_confirmed)
+autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
+autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
+autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
+#Final model
+model_2<- glm(data = na.omit(covidData1), gcmr_grocery_pharmacy~national_lock + daily_deaths + deaths_per_capita + daily_confirmed)
+summary(model_2)
+```
 
+```{r plots of confirmed or death against date with colour as reproduction rate}
+covidData1 %>% ggplot(aes(x = date, y = daily_confirmed, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Daily confirmed')
+
+covidData1 %>% ggplot(aes(x = date, y = daily_deaths, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Daily Deaths')
+
+covidData1 %>% ggplot(aes(x = date, y = confirmed, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Confirmed')
+
+covidData1 %>% ggplot(aes(x = date, y = deaths, colour = reproduction_rate))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  scale_colour_gradient(low = 'yellow', high = 'red', na.value = NA)+
+  ggtitle('Deaths')
+```
+
+```{r glm for confirmed}
+minModel <- glm(data = na.omit(covidData1), confirmed ~ 1)
+maxModel <- glm(data = na.omit(covidData1), confirmed ~national_lock + reproduction_rate)
 autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
 autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
 autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
 
-summary(autoBack)
-summary(autoForward)
-summary(autoBoth)
+#Final Model
+model_3<- glm(data = na.omit(covidData1), confirmed ~ national_lock + reproduction_rate)
+summary(model_3)
 ```
-
-
 
 ## Investigating the effect of length of lockdown
 
@@ -573,7 +574,6 @@ summary(autoBack)
 summary(autoForward)
 summary(autoBoth)
 ```
-
 
 
 
