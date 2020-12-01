@@ -182,6 +182,7 @@ ggplot(Rdata, aes(x= post_lockdown_r)) + geom_boxplot() +
 
 ```
 
+The graphs above show that lockdown was effective in reducing the R in most countries as there is a clear shift to the left and then back to the right for the different periods across the three graphs. Even countries that had 'outlier' R numbers reduced their R significantly during lockdown. When deciding the period to calculate the R data from, we considered the trade-off between a large period but uncertainty on what the R reflected, the fact that linear models over long periods would not accurately predict the R because of fluctuations in daily confirmed cases. Also short periods might carry the risk of not being representative of the true R. In the end we decided to focus on the rising and falling part of each countries daily cases. For most countries there was an linear rise in the log of daily cases followed by a linear decrease in daily confirmed cases after the day with the most confirmed cases. After lockdown there was also a slight rise in R for some countries which intrinsically implies the damping effect of lockdown on R.
 
 
 ```{r model_data,}
