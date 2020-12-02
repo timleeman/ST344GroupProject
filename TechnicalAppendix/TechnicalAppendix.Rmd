@@ -633,20 +633,6 @@ ggplot(data = filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockd
 ```
 
 
-```{r}
-library(splines)
-library(MASS)
-ukModelData <- filter(modelData, country == "United Kingdom", days_in_lockdown > 0)
-someCountries <- c("United Kingdom", "France", "Italy", "Netherlands", "Peru", "Dominican Republic", "Mexico", "Germany")
-#someCountries <- c("France")
-reducedModelData <- filter(modelData, country %in% someCountries)
-splinesModel <- glm.nb(data = modelData, rolling_daily_confirmed ~ 1 + national_lockdown_length + country + country:ns(days_in_lockdown, df = 5))
-summary(splinesModel)
-plot(splinesModel)
-ggplot(data = modelData, aes(x = days_in_lockdown, y = rolling_daily_confirmed, group = country, col = country)) + geom_line() + geom_line(aes(y = exp(predict(splinesModel))), linetype = "dotdash", size = 0.8)
-```
-
-
 
 ##Investigating lockdown recovery
 
