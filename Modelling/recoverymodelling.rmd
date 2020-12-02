@@ -180,7 +180,7 @@ plot(regsubsetsOut, scale = "Cp")
 
 ggplot(modelData, aes(x=days_out_lockdown, y= daily_confirmed, group= country)) +
   geom_line()+
-  labs( x = "Days out of lockdown", y = "GCMR retail/recreation")
+  labs( x = "Days out of lockdown", y = "Daily confirmed deaths")
 
 ```
 
@@ -220,12 +220,14 @@ summary(autoBack)
 summary(autoForward)
 summary(autoBoth)
 
+anova(autoBoth)
 ##Forward, backward and both directions stepwise regression all choose the same model which is encouraging
 #similar
 #Exhaustive search for best model
+with(summary(autoBoth), 1 - deviance/null.deviance)
 
 install.packages("leaps")
-
+install.packages("gridExtra")
 library(tidyverse)
 library(caret)
 library(leaps)
@@ -234,6 +236,33 @@ regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_out_lockd
                               national_lockdown_length, data = modelData)
 plot(regsubsetsOut, scale = "Cp")
 
-```
+library(ggplot2)
+library(gridExtra)
+library(MASS)
+
+
+lm1 <- glm(data = modelData, dc_percapita ~ days_out_lockdown)
+
+
+
+#comparing residuals of iterative model with basic 'null model'- lm1
+#residuals seem to have variance that is fairly constand however there is an extremely long tail
+
+plot(density(resid(autoBoth, type='response')))
+lines(density(resid(lm1, type='response')), col='red')
+
+
+
+# Plotting residuals against fitted values of comparative model (lm1)
+#discernible patterns with both models however looks stronger with sepwise regression model suggesting better fit
+
+par(mfrow=c(1,2))
+scatter.smooth(predict(autoBoth, type='response'), rstandard(autoBoth, type='deviance'), col='gray')
+scatter.smooth(predict(lm1, type='response'), rstandard(lm1, type='deviance'), col='gray')
+
+
+
 
 ```
+
+
