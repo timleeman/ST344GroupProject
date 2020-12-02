@@ -735,7 +735,9 @@ modelData$gdp_capita <- scale(modelData$gdp_capita)
 ### 
 #Modeling rolling average of retail/recreation gcmr with some explanatory variables
 #What can be concluded of the results?
-#Model chooses average temp, lockdown length and days out of lockdown as variables. Intuitively the only coefficient that does not make sense is the average temperature. Also has the largest effect so may need to reconsider.
+#Model chooses average temp, lockdown length and days out of lockdown as variables. Days out of lockdown seems to be a very important contributor, with a small chance of rejection in a t-test. With all other things being equal, we would expect the gcmr activity to increase by 0.055176 with each consecutive day.
+#Intuitively the only coefficient that does not make sense is the average temperature. Also has the largest effect so may need to reconsider. Additionally, we have not considered behaviour in different climes affecting gcmr differently.
+
 ###
 modelData <- na.omit(modelData)
 
@@ -762,6 +764,16 @@ library(leaps)
 regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_out_lockdown + 
                               national_lockdown_length, data = modelData)
 plot(regsubsetsOut, scale = "Cp")
+
+na.omit(modelData) %>% ggplot(aes(y = rolling_gcmr_retail, x = days_out_lockdown, group = country))+geom_line()+geom_line(aes(y = predict(model1)), colour = 'red')
+
+plot(model1)
+
+# GOODNESS OF FIT
+###
+#QQ plot shows deviance on the tails, suggesting that this model may not be the best fit, only roughly approximating a normal distribution.
+#
+###
 
 ```
 
@@ -806,8 +818,11 @@ ggplot(modelData, aes(x=days_out_lockdown, y= dc_percapita, group= country)) +
 ```{r }
 ###
 #Modelling now with rolling daily cases per capita
-#Model uses all explanatory variables afforded to it. 
-#Coefficients for lockdown length and days out of lockdown seem to be most important
+#
+#Model uses all explanatory variables afforded to it, however the coefficients for lockdown length and days out of lockdown seem to be most important, owing to their low p value and - relatively - large contribution to the model. It must me remembered that what we are modelling, (daily confirmed cases per capita), can theoretically only take values between 1 and 0. In practice it only takes values lower than 0.002.
+#So how would we interpret the days_out_lockdown coefficient for example? Think about a country that has been out of lockdown for x amount of days; its lockdown length and gdp will be the same on day x+1, so on the assumption that the average temperature has remained the same on days x and x+1, we would expect an increase in the daily confirmed cases per capita of 0.000001189 (1.189e-06). i.e. if a country has a population of 1  million, we would expect the amount of new daily cases on day x+1 to increase by 1.189 (1 person), relative to day x, (ceteris paribus).
+
+#GDP per capita contributes a lot to the model with a coefficient of 
 ###
 modelData <- na.omit(modelData)
 
@@ -821,19 +836,52 @@ summary(autoBack)
 summary(autoForward)
 summary(autoBoth)
 
+anova(autoBoth)
 ##Forward, backward and both directions stepwise regression all choose the same model which is encouraging
 #similar
 #Exhaustive search for best model
+with(summary(autoBoth), 1 - deviance/null.deviance)
 
 install.packages("leaps")
-
+install.packages("gridExtra")
 library(tidyverse)
 library(caret)
 library(leaps)
 
-regsubsetsOut <- regsubsets(gcmr_retail_recreation ~ gdp_capita + days_out_lockdown + 
+regsubsetsOut <- regsubsets(dc_percapita ~ gdp_capita + days_out_lockdown + 
                               national_lockdown_length, data = modelData)
 plot(regsubsetsOut, scale = "Cp")
+
+library(ggplot2)
+library(gridExtra)
+library(MASS)
+
+
+lm1 <- glm(data = modelData, dc_percapita ~ days_out_lockdown)
+
+
+na.omit(modelData) %>% ggplot(aes(y = dc_percapita, x = days_out_lockdown, group = country))+geom_line()+geom_line(aes(y = predict(lm1)), colour = 'red')
+
+plot(lm1)
+
+
+
+plot(density(resid(autoBoth, type='response')))
+lines(density(resid(lm1, type='response')), col='red')
+
+
+
+
+
+par(mfrow=c(1,2))
+scatter.smooth(predict(autoBoth, type='response'), rstandard(autoBoth, type='deviance'), col='gray')
+scatter.smooth(predict(lm1, type='response'), rstandard(lm1, type='deviance'), col='gray')
+
+plot(autoBoth)
+
+#Comparing residuals of iterative model with basic 'null model'- (lm1)
+#Residuals seem to have variance that is fairly constant however there is an extremely long tail. This, in addition to the QQ plot,suggests that the GLM is slightly more appropriate to use as a model.
+# When plotting residuals against fitted values of comparative model (lm1) we can see discernible patterns with both models however this looks stronger with stepwise regression model suggesting a better fit
 
 ```
 
