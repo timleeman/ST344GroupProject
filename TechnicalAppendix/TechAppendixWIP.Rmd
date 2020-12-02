@@ -395,14 +395,30 @@ lockdown_end_date <- function(cou){
   return(a$`EndDate`[1]) 
 }
 get_lockdown_data <- function(cou){
-  lockdown_data <- selectData %>% filter(country == cou, !is.na(daily_confirmed)) %>% 
-   filter(date >= pre_lockdown_start_date(cou)) %>%
-   filter(date < lockdown_end_date(cou)) %>%
-   mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400),
-          rolling_gcmr_retail = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA),
-          rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA),
-          rolling_daily_confirmed = zoo::rollmean(daily_confirmed, k = 7, fill = NA))
+   if(is.na(lockdown_end_date(cou))){
+    lockdown_data <- selectData %>% filter(country == cou) %>% 
+                    filter(date >= pre_lockdown_start_date(cou)) %>%
+                    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400),
+                           rolling_gcmr_retail = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA),
+                           rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA),
+                           peak_daily_cases = max(daily_confirmed, na.rm= T))
+    return(lockdown_data)
+  }
+  lockdown_data <- selectData %>% filter(country == cou) %>% 
+                    filter(date >= pre_lockdown_start_date(cou)) %>%
+                    filter(date < lockdown_end_date(cou)) %>%
+                    mutate(days_in_lockdown = as.numeric(-difftime(lockdown_start_date(cou), date)/86400),
+                           rolling_gcmr_retail = zoo::rollmean(gcmr_retail_recreation, k = 7, fill = NA),
+                           rolling_gcmr_grocery = zoo::rollmean(gcmr_grocery_pharmacy, k = 7, fill = NA),
+                           peak_daily_cases = max(daily_confirmed, na.rm= T))
   return(lockdown_data)
+}
+
+get_peak_daily_cases_day <- function(cou){
+  most_in_day <- get_lockdown_data(cou)$peak_daily_cases[1]
+  most_day <- get_lockdown_data(cou) %>% filter(daily_confirmed == most_in_day)
+  most_day_date <- most_day$date[1]
+  return(most_day_date)
 }
 lockdown_data <- tibble()
 for(cou in national_lockdowns$country){
@@ -411,13 +427,10 @@ for(cou in national_lockdowns$country){
 }
 ```
 
-```{r calculating_the_r, message=FALSE, warning=FALSE, eval = FALSE}
+```{r calculating_the_r, message=FALSE, warning=FALSE}
 
 #We calculated the R number for three periods in each country's epidemic 
-
-#The first function uses the 28 days leading up to lockdown, 
-# it returns NA for countries that had a maximum of 10 daily cases 
-# during the period because the high R's calculated were not justifiable
+#The first function uses the 28 days leading up to lockdown, it returns NA for countries that had a maximum of 10 daily cases during the period because the high R's calculated were not justifiable
 before_lockdown_r <- function(cou){
   startday <- lockdown_start_date(cou) - 28
   endday <- lockdown_start_date(cou)
@@ -431,8 +444,6 @@ before_lockdown_r <- function(cou){
   R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
   return(R)
 }
-
-
 #The second R uses the 28 days from the day with the most cases in lockdown
 during_lockdown_r <- function(cou){
   startday <- get_peak_daily_cases_day(cou)
@@ -444,12 +455,7 @@ during_lockdown_r <- function(cou){
   R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
   return(R)
 }
-
-
-#This uses the 7 days after lockdown. 
-#Some countries were still in lockdown at the end of the dataset so if a 
-#lockdown end date was not found from Auravision,
-#we use the during lockdown functions result for continuity.
+#This uses the 7 days after lockdown. Some countries were still in lockdown at the end of the dataset so if a lockdown end date was not found from Auravision, we use the during lockdown functions result for continuity.
 post_lockdown_r <- function(cou){
   if(is.na(lockdown_end_date(cou))){
     return(during_lockdown_r(cou))
@@ -463,13 +469,8 @@ post_lockdown_r <- function(cou){
   R <-  exp(4*(coef(daily_cases_model)[2] %>% as.numeric))
   return(R)
 }
-
-lst <- list(country= c(), before_lockdown_r= c(),
-            during_lockdown_r= c(), post_lockdown_r= c())
-
+lst <- list(country= c(), before_lockdown_r= c(), during_lockdown_r= c(), post_lockdown_r= c())
 Rdata <- as.data.frame(lst)
-
-
 #Calculates the three R values 
 calculate_r <- function(x){
   a <- before_lockdown_r(x) 
@@ -481,16 +482,13 @@ calculate_r <- function(x){
                   post_lockdown_r = c)
   return(row)
 }
-
 # Binding the R data for each country in national lockdown
 for(i in national_lockdowns$country){
   Rdata <- rbind(Rdata, calculate_r(i))
 }
-
-
 ```
 
-```{r exploring_Rdata, eval = FALSE}
+```{r exploring_Rdata}
 
 head(Rdata,45) 
 ggplot(Rdata, aes(x= before_lockdown_r)) + geom_boxplot() + 
