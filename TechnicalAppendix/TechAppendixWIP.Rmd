@@ -495,30 +495,39 @@ The graphs above show that lockdown was effective in reducing the R in most coun
 
 # GCMR Modelling
 
-### Setting up the dataframe. This section adds data from Gapminder and Statista that we suscepted would be relevant to our gcmr models
+This section adds data from Gapminder and Statista that we suscepted would be relevant to gcmr models
+
 ```{r model_data,}
-lockdown_data <- lockdown_data %>%
-  mutate(daily_confirmed = firstdiff(confirmed))
-average_temperature <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
-modelData <- lockdown_data %>% select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
-                                      rolling_gcmr_grocery, gcmr_retail_recreation, gcmr_grocery_pharmacy, days_in_lockdown, income) %>%  distinct()
+average_temperature <- import(
+  "https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/average_temperature_edit.xlsx")
+modelData <- lockdown_data %>% 
+  dplyr::select(country, date, continent, gdp_capita, rolling_gcmr_retail, 
+    rolling_gcmr_grocery, gcmr_retail_recreation, gcmr_grocery_pharmacy,
+    days_in_lockdown, income, daily_confirmed, rolling_daily_confirmed) %>%  distinct()
 modelData <- left_join(modelData, average_temperature, by= "country")
 
 modelData$gdp_capita <- scale(modelData$gdp_capita)
 #modelData$average_temperature <- scale(modelData$average_temperature)
 modelData <- modelData %>% na.omit() 
 modelData <- modelData %>% mutate(days_squared = days_in_lockdown^2)
-population_20_39 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_20_39.xlsx")
-population_20_39 <- select(population_20_39, country, `2019`)
-population_40_59 <- import("https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_40_59.xlsx")
-population_40_59 <- select(population_40_59, country, `2019`)
+population_20_39 <- import(
+  "https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_20_39.xlsx")
+population_20_39 <- dplyr::select(population_20_39, country, `2019`)
+population_40_59 <- import(
+  "https://raw.github.com/timleeman/ST344GroupProject/main/Modelling/population_aged_40_59.xlsx")
+population_40_59 <- dplyr::select(population_40_59, country, `2019`)
 population_20_59 <- left_join(population_20_39, population_40_59, by= "country")
-population_20_59 <- population_20_59 %>% transmute(country, pop_20_59= `2019.x` + `2019.y` )
+population_20_59 <- population_20_59 %>% 
+  transmute(country, pop_20_59= `2019.x` + `2019.y` )
 modelData <- left_join(modelData, population_20_59, by= "country")
 head(modelData,500)
+modelData <- left_join(modelData, national_lockdowns, by = "country")
+modelData <- modelData %>% 
+  mutate(positive_rolling_gcmr_retail = -1*rolling_gcmr_retail,
+         positive_rolling_gcmr_grocery = -1*rolling_gcmr_grocery)
 ```
 
-### View plots of gcmr against days in lockdown to assess the validating of a model. 
+View plots of gcmr against days in lockdown to assess the validating of a model. 
 
 ```{r justification_for_first_model,}
 plot_country_lockdown_gcmr_retail <- function(cou){
@@ -526,66 +535,159 @@ plot_country_lockdown_gcmr_retail <- function(cou){
   ggplot(a, aes(x= date, y= rolling_gcmr_retail)) + geom_line()
 }
 #plot_country_lockdown_gcmr_retail("Germany")
-ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= average_temperature)) + geom_line()
-ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= income)) + geom_line()
-ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail, group= country, col= pop_20_59)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail,
+                      group= country, col= average_temperature)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail,
+                      group= country, col= income)) + geom_line()
+ggplot(modelData, aes(x=days_in_lockdown, y= rolling_gcmr_retail,
+                      group= country, col= pop_20_59)) + geom_line()
 ```
 
-### The basic first model
-
+Here we fit a very basic linear model with the only predictor for the GCMR data being the length of national lockdown to see if we can learn anything about how lockdown lengths affect shopping habits.
 ```{r first_model,}
-model1 <- lm(data= modelData, rolling_gcmr_retail ~ days_in_lockdown)
+initialModel1 <- glm(data = modelData, rolling_gcmr_retail ~ national_lockdown_length)
+summary(initialModel1)
+initialModel2 <- glm(data = modelData, rolling_gcmr_grocery ~ national_lockdown_length)
+summary(initialModel2)
 ```
 
-### We started off by categorising countries into short, medium and long lockdown lengths but we realised that this could make the findings of the investigation highly subject to manipulations.
+Here we see that national_lockdown_length has a very low p-value which is good evidence for its usefulness in the model, but since its estimated coefficient is only 0.06256 we can see that while the length of a national lockdown does have an effect on how much people are visiting retail and grocery businesses, the effect appears to be small and inconsistent since we get a positive coefficient when modelling against data for retail and recreation but a negative coefficient when modelling against grocery and pharmacy. This would be interpreted as for two countries under the same conditions except for one had a longer lockdown by one day, we would predict that the one with a longer lockdown would see more people shopping in retail quanitfied by ~0.06 increase in gcmr and fewer people in grocery annd phramacy businesses quantified by a ~0.05 decrease in gcmr. These differences are small and it is important to take these conclusion with a pinch of salt: the gcmr data is based on a normal level of footfall in these businnesses in each country, so differences in how much difference there is in footfall under normal conditions between different countries is not accounted for.
 
-```{r grouping_by_lockdown_length, warning=FALSE}
-ggplot(national_lockdowns, aes(x= national_lockdown_length)) +
-geom_histogram(breaks= seq(0,160,25)) 
-#average_lockdown_length <- national_lockdowns %>% filter(national_lockdown_length <= 77 & national_lockdown_length > 48)
-#average_lockdown_modelData <- modelData %>% filter(country %in% average_lockdown_length$country)
-```
 
-### This adds a new variable lockdown category to national_lockdowns based on proposed lengths
-```{r}
-lockdownCat <- c()
-national_lockdowns <- filter(national_lockdowns, country %in% modelData$country)
-for(i in seq(1:40)){
-  if(national_lockdowns[i, ]$national_lockdown_length < 48){
-    lockdownCat <- c(lockdownCat, "Short")
-  }
-  else if(national_lockdowns[i, ]$national_lockdown_length > 78){
-    lockdownCat <- c(lockdownCat, "Long")
-  }
-  else{
-    lockdownCat <- c(lockdownCat, "Medium")
-  }
-}
-```
-
-### Setting up the final data frame to be working with
-```{r}
-national_lockdowns <- national_lockdowns %>%mutate(lockdownCategory = lockdownCat)
-modelData <- left_join(modelData, national_lockdowns, by = "country")
-modelData$Place <- NULL #gets rid of the Place column, it was causing probblems with stepwise regression and is basically useless here
-```
-
+From here, we decided to use stepwise regression so that the model could choose between a few variables which it considered to be most useful for predicting overall trends in gcmr. This should allow us to draw the best conclusions on how different factors. First on Retail and Recreation:
 
 ```{r}
-initialModel <- glm(data = modelData, rolling_gcmr_retail ~ national_lockdown_length)
-summary(initialModel)
-#A minimal and maximal model we want to consider, haven't yet considered interactions between variables
-minModel <- glm(data = modelData, rolling_gcmr_retail ~ 1)
-maxModel <- glm(data = modelData, rolling_gcmr_retail ~ gdp_capita + average_temperature + national_lockdown_length)
+#gets rid of the Place column which is mostly empty
+modelData$Place <- NULL
+minModel1 <- glm.nb(data = 
+          filter(modelData, positive_rolling_gcmr_retail > 0, days_in_lockdown > 0),
+          round(positive_rolling_gcmr_retail) ~ 1)
+maxModel1 <- glm.nb(data = 
+        filter(modelData, positive_rolling_gcmr_retail > 0, days_in_lockdown > 0),
+        round(positive_rolling_gcmr_retail) 
+         ~ 1 + gdp_capita + average_temperature + national_lockdown_length +
+             days_in_lockdown + I(log(days_in_lockdown)))
 #stepwise regression backwards, forwards and both directions
-autoBack <- step(maxModel, direction = "backward", scope = list("lower" = minModel))
-autoForward <- step(minModel, direction = "forward", scope = list("upper" = maxModel))
-autoBoth <- step(minModel, direction = "both", scope = list("lower" = minModel, "upper" = maxModel))
-summary(autoBack)
-summary(autoForward)
-summary(autoBoth)
-#Forward, backward and both directions stepwise regression all choose the same model which is encouraging
+autoBack1 <- step(maxModel1, direction = "backward", 
+                  scope = list("lower" = minModel1), trace = FALSE)
+autoForward1 <- step(minModel1, direction = "forward", 
+                     scope = list("upper" = maxModel1), trace = FALSE)
+autoBoth1 <- step(minModel1, direction = "both", 
+                  scope = list("lower" = minModel1, "upper" = maxModel1), trace = FALSE)  
+summary(autoBack1)   
+summary(autoForward1)
+summary(autoBoth1)
+#Forward, backward and both directions stepwise regression all choose the same model
+ggplot(data = filter(modelData, positive_rolling_gcmr_retail > 0, days_in_lockdown > 0),
+  aes(x = days_in_lockdown, y = rolling_gcmr_retail, group = country, col = country)) +
+  geom_line() + 
+  geom_line(aes(y = -exp(predict(autoBoth1))), linetype = "dotdash", size = 0.8) +
+  theme(legend.position = "bottom")
 ```
+
+Here we get the algorithm choosing both the length of national lockdown and the average temperature of a country to be predictor variables for gcmr data. We see a similarly small effect from the length of national lockdown, as before, but we also interestingly see that the higher the average temperature of a country, the lower we would expect footfall in retail businesses to be on average. A lockdown one day longer would predict that gcmr for retail would be better by ~0.154 and an increase of one degree in average temperature would predict a lower gcmr overall by -01.03. Generally over time, gcmr increases which is given by the coefficient of 0.05 for `days_in_lockdown`. While fitting this model is useful in terms of interpreting its parameters, the model is clearly not a particularly close fit for shape.
+
+To fit the model more closely to the curves we use a spline model as follows, allowing the model to 
+```{r}
+splineModelRetail <- 
+  glm(data = filter(modelData, gcmr_retail_recreation < 0, days_in_lockdown > 0),
+      rolling_gcmr_retail ~ days_in_lockdown +
+        national_lockdown_length + country + country:ns(days_in_lockdown, df = 5) +
+        average_temperature + I(log(days_in_lockdown)))
+head(coef(splineModelRetail))
+ggplot(data = filter(modelData, gcmr_retail_recreation < 0, days_in_lockdown > 0),
+  aes(x = days_in_lockdown, y = rolling_gcmr_retail, group = country, col = country)) +
+  geom_line() + 
+  geom_line(aes(y = predict(splineModelRetail)), linetype = "dotdash", size = 0.8) +
+  theme(legend.position = "bottom")
+```
+
+Here we can see that the model curves fit the data very well, and we get a coefficient of 1.213 for national lockdown length. This means this model "predicts" that for a national lockdown being one day longer means GCMR for retail will be on average 1.213 higher. We have to be careful about taking this coefficient too seriously though since spline models are not really made for prediction, and since this models differently over several countries it would be hard to make a conclusion about the overall trend since the data is overfitted.
+
+
+
+We do the same thing, this time modelling grocery and pharmacy
+```{r, fig.width = 12, fig.height = 6}
+minModel2 <- glm.nb(data = 
+        filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0),
+        round(positive_rolling_gcmr_grocery) ~ 1)
+maxModel2 <- glm.nb(data = 
+        filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0),
+        round(positive_rolling_gcmr_grocery) 
+        ~ 1 + gdp_capita + average_temperature + national_lockdown_length +
+        days_in_lockdown + I(log(days_in_lockdown)))
+#stepwise regression backwards, forwards and both directions
+
+autoBack2 <- step(maxModel2, direction = "backward", 
+                  scope = list("lower" = minModel2), trace = FALSE)
+autoForward2 <- step(minModel2, direction = "forward", 
+                     scope = list("upper" = maxModel2), trace = FALSE)
+autoBoth2 <- step(minModel2, direction = "both", 
+                  scope = list("lower" = minModel2, "upper" = maxModel2), trace = FALSE)  
+summary(autoBack2)   
+summary(autoForward2)
+summary(autoBoth2)
+
+#Forward, backward and both directions stepwise regression all choose the same model 
+
+ggplot(data = filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0), 
+ aes(x = days_in_lockdown, y = rolling_gcmr_grocery, group = country, col = country)) +
+  geom_line() + 
+  geom_line(aes(y = -exp(predict(autoBoth2))), linetype = "dotdash", size = 0.8) +
+  theme(legend.position = "bottom")
+```
+
+In this case the stepwise regression picks a model with three predictor variables: gdp per capita, average temperature and the length of national lockdown. Average temperature and national lockdown length have a similar effects in this model, with footfall to grocery and pharmacy businesses being higher with national lockdown lengths and lower with greater average temperatures. In this case gdp per capita is also chosen as a good predictor for the gcmr data. It indicates that countries with a better performing economy tended to have significantly more activity in grocery and pharmacy stores as given by the coefficient of 4.93.
+
+The tendency in both of the modelling situation for national lockdown length having a positive coefficient may be explained by confidence in the public in the safety of shopping. Whether countries had national lockdowns or not we saw an overall trend in February-April of 2020 where footfall to all businesses suddenly plummeted which in part would be explained by people's reluctance to have contact with other people for fear of contracting Covid, but as many businesses took steps to make shopping safer (such as providing hand sanitiser at entrances and enforcing the wearing of face-masks) the public's willingness to go shopping would have increased due to these measures, so we see that in long lockdowns, there seems to be less fear of Covid as time goes on. There is of course no way of proving this effect with our data but it offers a rational explanation of why longer lockdowns seem to indicate more activity in both retail and grocery businesses.
+
+Once again we try a spline model to get the best fit to the data as we did before:
+
+```{r}
+splineModelGrocery <- glm(data = 
+            filter(modelData, gcmr_grocery_pharmacy < 0, days_in_lockdown > 0), 
+            rolling_gcmr_grocery ~ days_in_lockdown + national_lockdown_length
+            + country + country:ns(days_in_lockdown, df = 5))
+head(coef(splineModelGrocery))
+ggplot(data = filter(modelData, gcmr_grocery_pharmacy < 0, days_in_lockdown > 0), 
+  aes(x = days_in_lockdown, y = rolling_gcmr_grocery, group = country, col = country)) +
+  geom_line() + 
+  geom_line(aes(y = predict(splineModelGrocery)), linetype = "dotdash", size = 0.8) +
+  theme(legend.position = "bottom")
+```
+
+In this case we get a coefficient of 5.075 for national lockdown length so an increase of 1 day in national lockdown length would supposedly lead to an overall 5% increase in footfall to grocery and pharmacy businesses. Again, this coefficient cannot be taken particularly seriously for the same reasons as with the original spline model.
+
+
+We might consider allowing country to be a variable in our previous models (ones without splines):
+
+```{r}
+minModel2 <- glm.nb(data = 
+                      filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0),
+                    round(positive_rolling_gcmr_grocery) ~ 1)
+maxModel2 <- glm.nb(data = filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0),
+                    round(positive_rolling_gcmr_grocery) 
+                    ~ 1 + gdp_capita + average_temperature + national_lockdown_length +
+                      days_in_lockdown + I(log(days_in_lockdown)) + country)
+#stepwise regression backwards, forwards and both directions
+
+autoBack2 <- step(maxModel2, direction = "backward", 
+                  scope = list("lower" = minModel2), trace = FALSE)
+autoForward2 <- step(minModel2, direction = "forward", 
+                     scope = list("upper" = maxModel2), trace = FALSE)
+autoBoth2 <- step(minModel2, direction = "both", 
+        scope = list("lower" = minModel2, "upper" = maxModel2), trace = FALSE)  
+summary(autoBack2)   
+summary(autoForward2)
+summary(autoBoth2)
+#Forward, backward and both directions stepwise regression all choose the same model
+
+ggplot(data = filter(modelData, positive_rolling_gcmr_grocery > 0, days_in_lockdown > 0), 
+       aes(x = days_in_lockdown, y = rolling_gcmr_grocery, group = country, col = country)) +
+       geom_line() + geom_line(aes(y = -exp(predict(autoBoth2))), linetype = "dotdash", size = 0.8) +
+  theme(legend.position = "bottom")
+```
+
 
 # Investigating lockdown recovery
 
