@@ -8,35 +8,20 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Setup and Data
 
-```{r}
-install.packages("devtools", repos = "http://cran.us.r-project.org")
+If you would like to run the code in this document yourself, you will need to install the following libraries: `devtools, tidyverse, dplyr, remotes, lubridate, readxl, rio, tidycovid19, ggpubr, zoo, MASS, splines, leaps, gridExtra, caret`. We have a script to do this automatically, load the package `devtools` and then run `source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")` in your R console.
+
+```{r, results = 'hide'}
 library(devtools)
-library(readr)
-source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")
+#loads packages
+source_url("https://raw.github.com/timleeman/ST344GroupProject/main/libraries.R")
+#gets data
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/getdata.R")
 ```
 
-# Setup and Data
 
 ### Explaining setup scripts
-
-The `setup.R` script installs packages as follows:
-```{r, eval = FALSE}
-install.packages("dplyr", "remotes", "lubridate", "readxl", "rio", "ggpubr", lib = Sys.getenv("R_LIBS_USER"), repos = "http://cran.us.r-project.org") 
-install.packages("tidyverse")
-remotes::install_github("nset-ornl/wbstats")
-remotes::install_github("joachim-gassen/tidycovid19")
-library(tidyverse)
-library(dplyr)
-library(remotes)
-library(lubridate)
-library(readxl)
-library(rio)
-library(tidycovid19)
-library(ggpubr)
-library(zoo)
-```
 
 The `getdata.R` script downloads the data we are using from our shared github repository, as well as produces a list of countries which we have chosen to analyse:
 ```{r, eval = FALSE}
