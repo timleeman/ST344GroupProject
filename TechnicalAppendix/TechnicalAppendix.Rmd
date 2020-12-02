@@ -5,14 +5,14 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, fig.height = 15, fig.width= 15)
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, fig.height = 15, fig.width= 15,fig.align='center')
 ```
 
 # Setup and Data
 
 If you would like to run the code in this document yourself, you will need to install the following libraries: `devtools, tidyverse, dplyr, remotes, lubridate, readxl, rio, tidycovid19, ggpubr, zoo, MASS, splines, leaps, gridExtra, caret`. We have a script to do this automatically, load the package `devtools` and then run `source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")` in your R console.
 
-```{r, }
+```{r errors=FALSE, message=FALSE, warning=FALSE, results='hide'}
 library(devtools)
 #loads packages
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/libraries.R")
@@ -152,7 +152,7 @@ write_csv(auravisionData, "AuraVisionCleaned.csv", na="")
 
 This `.csv` of the tidied dataset was then uploaded to our github repository [here](https://github.com/timleeman/ST344GroupProject/blob/main/Data/AuraVisionCleaned.csv)
 
-#Analysis
+# Analysis
 
 
 ## Investigating effect of Lockdowns
@@ -272,7 +272,7 @@ plot_3<- filter(covidData1, national_lock %in% 1) %>%
 ```
 
 ### Final plots
-```{r arranging the plots, fig.height = 10, fig.width= 15, warning = FALSE, message = FALSE}
+```{r arranging the plots, fig.height = 20, fig.width= 15, warning = FALSE, message = FALSE}
 plot_final<- ggarrange(plot_1, plot_2, plot_3, ncol = 1, nrow = 3)
 plot_final
 ```
