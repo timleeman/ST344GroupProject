@@ -170,16 +170,18 @@ for(i in national_lockdowns$country){
 ```{r exploring_Rdata,}
 
 head(Rdata,45)
-ggplot(Rdata, aes(x= before_lockdown_r)) + geom_boxplot() + 
-  labs(x= "R", title= "Distribution of R before Lockdown",
-       subtitle= "R calculated from the 28 days before lockdown") 
-ggplot(Rdata, aes(x= during_lockdown_r)) + geom_boxplot() + 
-  labs(x= "R", title= "Distribution of R from peak cases day",
-       subtitle= "R calculated from the 28 days after the peak cases day in lockdown") 
-ggplot(Rdata, aes(x= post_lockdown_r)) + geom_boxplot() + 
-  labs(x= "R", title= "Distribution of R after Lockdown",
-       subtitle= "R calculated from the 7 days after lockdown") 
 
+png(width=600, height=350)
+ggplot(Rdata, aes(x= before_lockdown_r)) + geom_boxplot() + 
+  labs(x= "Reproduction Rate", title= "Distribution of R before Lockdown",
+       subtitle= "R calculated from the 28 days before lockdown in 33 countries") 
+ggplot(Rdata, aes(x= during_lockdown_r)) + geom_boxplot() + 
+  labs(x= "Reproduction Rate", title= "Distribution of R from peak cases day",
+       subtitle= "R calculated from the 28 days after the peak cases day in lockdown in 43 countries") 
+ggplot(Rdata, aes(x= post_lockdown_r)) + geom_boxplot() + 
+  labs(x= "Reproduction Rate", title= "Distribution of R after Lockdown",
+       subtitle= "R calculated from the 7 days after lockdown in 43 countries") 
+dev.off()
 ```
 
 The graphs above show that lockdown was effective in reducing the R in most countries as there is a clear shift to the left and then back to the right for the different periods across the three graphs. Even countries that had 'outlier' R numbers reduced their R significantly during lockdown. When deciding the period to calculate the R data from, we considered the trade-off between a large period but uncertainty on what the R reflected, the fact that linear models over long periods would not accurately predict the R because of fluctuations in daily confirmed cases. Also short periods might carry the risk of not being representative of the true R. In the end we decided to focus on the rising and falling part of each countries daily cases. For most countries there was an linear rise in the log of daily cases followed by a linear decrease in daily confirmed cases after the day with the most confirmed cases. After lockdown there was also a slight rise in R for some countries which intrinsically implies the damping effect of lockdown on R.
