@@ -5,14 +5,14 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warnings = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, fig.height = 15, fig.width= 15)
 ```
 
 # Setup and Data
 
 If you would like to run the code in this document yourself, you will need to install the following libraries: `devtools, tidyverse, dplyr, remotes, lubridate, readxl, rio, tidycovid19, ggpubr, zoo, MASS, splines, leaps, gridExtra, caret`. We have a script to do this automatically, load the package `devtools` and then run `source_url("https://raw.github.com/timleeman/ST344GroupProject/main/setup.R")` in your R console.
 
-```{r, results = 'hide'}
+```{r, }
 library(devtools)
 #loads packages
 source_url("https://raw.github.com/timleeman/ST344GroupProject/main/libraries.R")
@@ -279,7 +279,7 @@ plot_final
 From the 2 plots above, we can see that with the presence of a national lockdown on our list of chosen countries, the level of activity in gcmr_retail_recreation and gcmr_grocery_pharmacy have decreased dramatically compared to countries without a lockdown. This suggests that a national lockdown does hamper economic activity and thus affects the businesses by decreasing the number of customers.
 
 ### Setting up step-wise regression analysis for gcmr_retail_recreation
-```{r glm for gcmr_reatail_recreation, results = 'hide', warning = FALSE, error = FALSE}
+```{r glm_for_gcmr_reatail_recreation, results = 'hide', warning = FALSE, error = FALSE}
 minModel <- glm(data = na.omit(covidData1),
                 gcmr_retail_recreation ~ 1)
 maxModel <- glm(data = na.omit(covidData1), 
@@ -300,7 +300,7 @@ model_1<- glm(data = na.omit(covidData1),
 ```
 
 #### Checking fit of Model 1
-```{r checking fit of model 1}
+```{r checking_fit_of_model 1}
 na.omit(covidData1) %>% 
 ggplot(aes(x = daily_deaths, y = gcmr_retail_recreation, 
        group = country, colour = national_lock))+
@@ -318,7 +318,7 @@ $$\beta = -11.56, \alpha_1 = -19.22 ,\alpha_2 = -0.0414$$
 Analysis of the Normal QQ plot shows that the residuals and the fitted values approximate a normal distribution, with most of the points falling on the line. A quick plot also shows that the model is an approximate fit to the points. This is in line with our initial findings where the presence of a national lockdown decreasing customer actvity in retail and recreation.
 
 ### Setting up step-wise regression analysis for gcmr_grocery_pharmacy
-```{r glm for gcmr_grocery_pharmacy}
+```{r glm_for_gcmr_grocery_pharmacy}
 minModel <- glm(data = na.omit(covidData1), 
                 gcmr_grocery_pharmacy ~ 1)
 maxModel <- glm(data = na.omit(covidData1), 
@@ -404,7 +404,7 @@ TidyData <- mutate(TidyData, country = factor(country),
 ```
 
 ### Getting the length of each country's lockdown from Auravision
-```{r lockdown_length calculator,}
+```{r lockdown_length calculator, include=FALSE}
 national_lockdowns <- auravisionData %>% filter(Level== "National") %>%
   dplyr::select(-Level)
 national_lockdowns <- national_lockdowns %>% 
@@ -415,7 +415,7 @@ national_lockdowns <- filter(national_lockdowns, country %in% chosenCountries)
 
 These series of function pull the relevant dates from Auravision and countries from covidData. In order to compare countries, we aligned each country's data to the start of lockdown by creating the variable `days_in_lockdown`. We also agreed to use a rolling mean for gcmr to reduce the effect of daily variations. The mean is calculated by averaging the gcmr of the three days before and after a specific day.
 
-```{r functions_to_get_lockdown_data_and_bind,}
+```{r functions_to_get_lockdown_data_and_bind, errors=FALSE, message=FALSE, warning=FALSE}
 covidData<- covidData %>% 
   mutate(daily_confirmed = firstdiff(confirmed))
 selectData <- filter(covidData, country %in% chosenCountries)
@@ -470,7 +470,7 @@ for(cou in national_lockdowns$country){
 ```
 
 We calculated the R number for three periods in each country's epidemic. The first function uses the 28 days leading up to lockdown, it returns NA for countries that had a maximum of 10 daily cases during the period because the high R's calculated were not justifiable
-```{r calculating_the_r, message=FALSE, warning=FALSE}
+```{r calculating_the_r, errors=FALSE, message=FALSE, warning=FALSE}
 before_lockdown_r <- function(cou){
   startday <- lockdown_start_date(cou) - 28
   endday <- lockdown_start_date(cou)
@@ -490,7 +490,7 @@ before_lockdown_r <- function(cou){
 ```
 
 The second R uses the 28 days from the day with the most cases in lockdown
-```{r}
+```{r errors=FALSE, message=FALSE, warning=FALSE}
 during_lockdown_r <- function(cou){
   startday <- get_peak_daily_cases_day(cou)
   endday <- startday + 28
@@ -507,7 +507,7 @@ during_lockdown_r <- function(cou){
 ```
 
 This uses the 7 days after lockdown. Some countries were still in lockdown at the end of the dataset so if a lockdown end date was not found from Auravision, we use the during lockdown functions result for continuity.
-```{r}
+```{r errors=FALSE, message=FALSE, warning=FALSE}
 post_lockdown_r <- function(cou){
   if(is.na(lockdown_end_date(cou))){
     return(during_lockdown_r(cou))
@@ -530,7 +530,7 @@ Rdata <- as.data.frame(lst)
 ```
 
 Calculates the three R values 
-```{r}
+```{r errors=FALSE, message=FALSE, warning=FALSE}
 calculate_r <- function(x){
   a <- before_lockdown_r(x) 
   b <- during_lockdown_r(x)
@@ -544,14 +544,14 @@ calculate_r <- function(x){
 ```
 
 Binding the R data for each country in national lockdown
-```{r warnings = FALSE, message = FALSE, error = FALSE}
+```{r errors=FALSE, message=FALSE, warning=FALSE}
 for(i in national_lockdowns$country){
   Rdata <- rbind(Rdata, calculate_r(i))
 }
 ```
 
 ### Exploring the R data
-```{r exploring_Rdata,}
+```{r exploring_Rdata, errors=FALSE, message=FALSE, warning=FALSE}
 ggplot(Rdata, aes(x= before_lockdown_r)) + geom_boxplot() + 
   labs(x= "R", title= "Distribution of R before Lockdown",
        subtitle= "R calculated from the 28 days before lockdown") 
