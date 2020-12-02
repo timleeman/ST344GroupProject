@@ -1,6 +1,7 @@
 install.packages("dplyr", "zoo", "remotes", "lubridate", "readxl", "rio", "ggpubr")
 install.packages("leaps")
 install.packages("gridExtra")
+install.packages("caret")
 install.packages("tidyverse")
 remotes::install_github("nset-ornl/wbstats")
 remotes::install_github("joachim-gassen/tidycovid19")
